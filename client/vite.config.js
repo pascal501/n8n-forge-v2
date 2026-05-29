@@ -6,6 +6,8 @@ export default defineConfig({
   root: '.',
   build: { outDir: '../dist', emptyOutDir: true },
   server: {
-    proxy: { '/api': { target: 'http://localhost:3001', changeOrigin: true } }
+    host: true,
+    port: 5173,
+    proxy: { '/api': { target: 'http://localhost:3001', changeOrigin: true, proxyTimeout: 120000, timeout: 120000 } }
   }
 })

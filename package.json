@@ -5,7 +5,7 @@
   "type": "commonjs",
   "scripts": {
     "start":   "node server/index.js",
-    "dev":     "concurrently \"nodemon server/index.js\" \"vite client\"",
+    "dev":     "concurrently \"nodemon --watch server server/index.js\" \"vite client\"",
     "build":   "vite build client",
     "preview": "vite preview client"
   },

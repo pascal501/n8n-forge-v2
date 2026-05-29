@@ -1,11 +1,17 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 
 // ─── API ─────────────────────────────────────────────────────────────────────
+async function safeJson(r) {
+  const text = await r.text()
+  if (!text) throw new Error(`Réponse vide du serveur (HTTP ${r.status})`)
+  try { return JSON.parse(text) }
+  catch { throw new Error(`Réponse non-JSON du serveur (${r.status}): ${text.slice(0, 120)}`) }
+}
 const api = {
-  get:    u     => fetch(u).then(r => r.json()),
-  post:   (u,b) => fetch(u,{method:'POST',  headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-  patch:  (u,b) => fetch(u,{method:'PATCH', headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()),
-  delete: u     => fetch(u,{method:'DELETE'}).then(r=>r.json()),
+  get:    u     => fetch(u).then(safeJson),
+  post:   (u,b) => fetch(u,{method:'POST',  headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(safeJson),
+  patch:  (u,b) => fetch(u,{method:'PATCH', headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(safeJson),
+  delete: u     => fetch(u,{method:'DELETE'}).then(safeJson),
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -70,10 +76,89 @@ function Md({ text }) {
   return <div dangerouslySetInnerHTML={{__html: html}}/>
 }
 
-// ─── Workflow Card ─────────────────────────────────────────────────────────────
+// ─── Workflow Canvas (représentation graphique) ───────────────────────────────
+function WorkflowCanvas({ workflow }) {
+  if (!workflow?.nodes?.length) return null
+  const nodes = workflow.nodes
+  const connections = workflow.connections || {}
+  const NODE_W = 200, NODE_H = 60, PADDING = 80
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  nodes.forEach(n => {
+    const x = n.position?.[0] || 0, y = n.position?.[1] || 0
+    if (x < minX) minX = x; if (y < minY) minY = y
+    if (x > maxX) maxX = x; if (y > maxY) maxY = y
+  })
+  if (minX === Infinity) { minX = 0; minY = 0; maxX = 800; maxY = 400 }
+
+  const canvasW = Math.max(maxX - minX + NODE_W + PADDING * 2, 600)
+  const canvasH = Math.max(maxY - minY + NODE_H + PADDING * 2, 300)
+  const offsetX = PADDING - minX, offsetY = PADDING - minY
+
+  const getPos = name => {
+    const n = nodes.find(n => n.name === name)
+    return n ? [(n.position?.[0]||0) + offsetX, (n.position?.[1]||0) + offsetY] : [0, 0]
+  }
+
+  const lines = []
+  Object.keys(connections).forEach(src => {
+    const [sx, sy] = getPos(src)
+    ;(connections[src]?.main || []).forEach((targets, outIdx, arr) => {
+      const outX = sx + NODE_W
+      const outY = sy + (NODE_H / (arr.length + 1)) * (outIdx + 1)
+      targets.forEach(t => {
+        const name = typeof t === 'string' ? t : t.node
+        if (!name) return
+        const [tx, ty] = getPos(name)
+        const inX = tx, inY = ty + NODE_H / 2
+        lines.push(`M ${outX} ${outY} C ${outX+60} ${outY}, ${inX-60} ${inY}, ${inX} ${inY}`)
+      })
+    })
+  })
+
+  return (
+    <div style={{width:'100%',height:320,overflow:'auto',background:'#1a1a2e',border:'1px solid var(--border2)',borderRadius:8,marginTop:12}}>
+      <div style={{width:canvasW,height:canvasH,position:'relative'}}>
+        <svg style={{position:'absolute',top:0,left:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+          <defs>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L8,3 z" fill="#00d8a5" opacity="0.7"/>
+            </marker>
+          </defs>
+          {lines.map((d, i) => (
+            <path key={i} d={d} fill="none" stroke="#00d8a5" strokeWidth="2" opacity="0.6" markerEnd="url(#arrow)"/>
+          ))}
+        </svg>
+        {nodes.map((n, i) => {
+          const x = (n.position?.[0]||0) + offsetX, y = (n.position?.[1]||0) + offsetY
+          return (
+            <div key={i} style={{position:'absolute',left:x,top:y,width:NODE_W,height:NODE_H,
+              background:'#16213e',border:'1px solid #0f3460',borderRadius:6,
+              padding:'8px 12px',display:'flex',alignItems:'center',
+              boxShadow:'0 4px 12px rgba(0,0,0,0.4)',zIndex:10}}>
+              <span style={{fontSize:20,marginRight:10}}>{nodeIcon(n.type)}</span>
+              <div style={{overflow:'hidden'}}>
+                <div style={{fontSize:12,fontWeight:600,color:'#e0e0e0',whiteSpace:'nowrap',textOverflow:'ellipsis',overflow:'hidden',maxWidth:140}}>
+                  {n.name}
+                </div>
+                <div style={{fontSize:10,color:'#00d8a5',whiteSpace:'nowrap',textOverflow:'ellipsis',overflow:'hidden',maxWidth:140}}>
+                  {n.type?.split('.').pop()}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Workflow Card  ─────────────────────────────────────────────────────────────
 function WorkflowCard({ workflow, onDeploy, onValidate, sessionId, n8nUrl }) {
   const [deployed, setDeployed] = useState(false)
   const [loading,  setLoading]  = useState(false)
+  const [showTooltip, setShowTooltip] = useState(false)
+  const [showCanvas,  setShowCanvas]  = useState(false)
 
   const handleDeploy = async () => {
     setLoading(true)
@@ -84,23 +169,70 @@ function WorkflowCard({ workflow, onDeploy, onValidate, sessionId, n8nUrl }) {
     setLoading(false)
   }
 
+  // Si le workflow n'a pas de noeuds ou est mal formaté, on ne l'affiche pas
+  if (!workflow || !Array.isArray(workflow.nodes)) return null;
+
   return (
     <div className="wf-card">
       <div className="wf-card-header">
         <span style={{fontSize:16}}>⚡</span>
         <span className="wf-card-title">{workflow.name}</span>
-        <span className="wf-card-meta">{workflow.nodes?.length||0} nodes</span>
+        
+        {/* Conteneur pour le compteur de nodes et l'infobulle */}
+        <div 
+          className="wf-card-meta-container"
+          style={{ position: 'relative', display: 'inline-block' }}
+          onMouseEnter={() => setShowTooltip(true)}
+          onMouseLeave={() => setShowTooltip(false)}
+        >
+          <span className="wf-card-meta" style={{ borderBottom: '1px dotted var(--text3)', cursor: 'help' }}>
+            {workflow.nodes?.length||0} nodes
+          </span>
+          
+          {/* L'infobulle customisée (visible au hover) */}
+          {showTooltip && workflow.nodes?.length > 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              backgroundColor: 'var(--bg2)',
+              border: '1px solid var(--border2)',
+              color: 'var(--text)',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              whiteSpace: 'normal',
+              minWidth: '180px',
+              maxWidth: '280px',
+              zIndex: 100,
+              marginTop: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              pointerEvents: 'none'
+            }}>
+              <div style={{ fontWeight: '600', marginBottom: '6px', color: 'var(--text2)', borderBottom: '1px solid var(--border)', paddingBottom: '4px' }}>
+                Nodes utilisés :
+              </div>
+              {workflow.nodes.map((n, idx) => (
+                <div key={idx} style={{ padding: '2px 0' }}>
+                  {nodeIcon(n.type)} {n.name || n.type}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
         {deployed && <span className="badge badge-green">✓ Déployé</span>}
       </div>
-      <div className="wf-card-nodes">
-        {(workflow.nodes||[]).slice(0,6).map((n,i)=>(
-          <span key={i} className="node-chip">
-            {nodeIcon(n.type)} {n.name}
-          </span>
-        ))}
-        {(workflow.nodes?.length||0)>6 &&
-          <span className="node-chip">+{workflow.nodes.length-6}</span>}
-      </div>
+      {showCanvas
+        ? <WorkflowCanvas workflow={workflow}/>
+        : <div className="wf-card-nodes">
+            {(workflow.nodes||[]).slice(0,6).map((n,i)=>(
+              <span key={i} className="node-chip">{nodeIcon(n.type)} {n.name}</span>
+            ))}
+            {(workflow.nodes?.length||0)>6 &&
+              <span className="node-chip">+{workflow.nodes.length-6}</span>}
+          </div>
+      }
       <div className="wf-card-actions">
         {!deployed && (
           <button className="btn btn-primary btn-sm" onClick={handleDeploy} disabled={loading}>
@@ -115,6 +247,9 @@ function WorkflowCard({ workflow, onDeploy, onValidate, sessionId, n8nUrl }) {
         )}
         <button className="btn btn-outline btn-sm" onClick={()=>onValidate?.(workflow)}>
           ✓ Valider
+        </button>
+        <button className="btn btn-sm" onClick={()=>setShowCanvas(v=>!v)} style={{marginLeft:'auto',backgroundColor:'#8a2be2',color:'#fff',border:'1px solid #8a2be2'}}>
+          {showCanvas ? '◻ Masquer' : '◈ Schéma'}
         </button>
       </div>
     </div>
@@ -135,15 +270,20 @@ function Message({ msg, sessionId, n8nUrl, onDeploy, onValidate }) {
       <div style={{flex:1, minWidth:0}}>
         <div className="msg-bubble">
           <Md text={text}/>
+          
+          {/* Toujours afficher la carte si un workflow a été extrait */}
           {msg.workflow && (
-            <WorkflowCard
-              workflow={msg.workflow}
-              sessionId={sessionId}
-              n8nUrl={n8nUrl}
-              onDeploy={onDeploy}
-              onValidate={onValidate}
-            />
+            <div style={{marginTop:12}}>
+              <WorkflowCard
+                workflow={msg.workflow}
+                sessionId={sessionId}
+                n8nUrl={n8nUrl}
+                onDeploy={onDeploy}
+                onValidate={onValidate}
+              />
+            </div>
           )}
+          
           {msg.deployedId && (
             <div style={{marginTop:8}}>
               <span className="badge badge-green">
@@ -403,6 +543,16 @@ export default function App() {
             📋
           </button>
         </div>
+
+        <button
+          title="Copier les commandes de déploiement vers la VM Freebox"
+          style={{margin:'8px 12px 12px',padding:'8px 12px',borderRadius:8,border:'1px solid var(--border2)',background:'var(--bg2)',color:'var(--text2)',fontSize:12,cursor:'pointer',textAlign:'left',lineHeight:1.4}}
+          onClick={() => {
+            const cmds = `cd /home/paco/projets/n8n-forge-v2\n\nscp server/index.js usine:/home/paco/n8n-forge-v2/server/\nscp server/services/gemini.js usine:/home/paco/n8n-forge-v2/server/services/\nscp server/services/mcp.js usine:/home/paco/n8n-forge-v2/server/services/\nscp client/src/App.jsx usine:/home/paco/n8n-forge-v2/client/src/\n\nssh usine "cd /home/paco/n8n-forge-v2 && docker compose up -d --build n8n-forge"`
+            navigator.clipboard.writeText(cmds).then(() => toast('📋 Commandes copiées !', 'success'))
+          }}>
+          🚀 Déployer en prod
+        </button>
       </aside>
 
       {/* ── MAIN ─────────────────────────────────────────────────────────── */}
@@ -524,14 +674,48 @@ export default function App() {
                     Aucun node chargé
                   </div>
                 )}
-                {nodes
-                  .filter(n => !nodeFilter || (n.displayName||n.name||'').toLowerCase().includes(nodeFilter.toLowerCase()))
-                  .map((n, i) => (
-                    <div key={i} className="wf-item">
-                      <span style={{fontSize:15,flexShrink:0}}>{nodeIcon(n.displayName||n.workflowNodeType||n.name||'')}</span>
-                      <span className="wf-item-name" title={n.displayName||n.name}>{n.displayName||n.name}</span>
-                    </div>
-                  ))}
+                {(() => {
+                  // Regrouper par catégorie/service (en utilisant la première partie du nodeType ou displayName)
+                  const filtered = nodes.filter(n => !nodeFilter || (n.displayName||n.name||'').toLowerCase().includes(nodeFilter.toLowerCase()))
+                  
+                  const groups = {}
+                  filtered.forEach(n => {
+                    // Essayer de trouver un nom de groupe logique
+                    let groupName = 'Autre'
+                    const type = n.workflowNodeType || n.nodeType || ''
+                    if (type.startsWith('n8n-nodes-base.')) {
+                      groupName = type.replace('n8n-nodes-base.', '').split(/(?=[A-Z])/)[0]
+                      groupName = groupName.charAt(0).toUpperCase() + groupName.slice(1)
+                    } else if (type.includes('.')) {
+                       groupName = type.split('.')[1] || type
+                    } else {
+                       groupName = n.category || 'Core'
+                    }
+                    if (groupName.length < 2) groupName = n.category || 'Autre'
+                    
+                    if (!groups[groupName]) groups[groupName] = []
+                    groups[groupName].push(n)
+                  })
+
+                  // Trier les groupes
+                  const sortedGroups = Object.keys(groups).sort()
+
+                  return sortedGroups.map(group => (
+                    <details key={group} open={!!nodeFilter} style={{ marginBottom: '8px' }}>
+                      <summary style={{ padding: '6px 12px', fontSize: '13px', fontWeight: '500', cursor: 'pointer', backgroundColor: 'var(--bg2)', borderRadius: '4px', userSelect: 'none' }}>
+                        {group} <span style={{ color: 'var(--text3)', fontSize: '11px', marginLeft: '6px' }}>({groups[group].length})</span>
+                      </summary>
+                      <div style={{ paddingTop: '4px' }}>
+                        {groups[group].map((n, i) => (
+                          <div key={i} className="wf-item" style={{ paddingLeft: '24px', borderBottom: 'none', padding: '6px 12px 6px 24px' }}>
+                            <span style={{fontSize:15,flexShrink:0}}>{nodeIcon(n.displayName||n.workflowNodeType||n.name||'')}</span>
+                            <span className="wf-item-name" title={n.displayName||n.name} style={{ fontSize: '12px' }}>{n.displayName||n.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ))
+                })()}
               </div>
             </div>
           )}

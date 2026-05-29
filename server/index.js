@@ -39,26 +39,33 @@ async function getContext() {
     return { nodes: cache.nodes, workflows: cache.workflows }
   }
   try {
-    // Nodes via MCP search_nodes (retourne tous les nodes connus)
-    const parseNodes = raw => {
-      try {
-        const p = JSON.parse(raw)
-        return Array.isArray(p) ? p : (p.results || p.data || [])
-      } catch { return [] }
-    }
-    const [r1, r2, r3] = await Promise.all([
-      mcp.searchNodes('webhook trigger schedule http email code function', 50),
-      mcp.searchNodes('slack telegram discord github gitlab notion airtable', 50),
-      mcp.searchNodes('mysql postgres mongodb redis stripe shopify google drive', 50),
-    ])
+    // Nodes via MCP search_nodes — appels séquentiels pour éviter les conflits de session
+    const NODE_QUERIES = [
+      'webhook trigger schedule',
+      'http email code function',
+      'slack telegram discord',
+      'github gitlab notion airtable',
+      'mysql postgres mongodb redis',
+      'stripe shopify google drive',
+      'salesforce hubspot zendesk jira',
+      'aws s3 openai anthropic',
+      'xml json csv rss ftp ssh',
+      'twilio sendgrid mailchimp',
+    ]
     const seen = new Set()
-    const nodes = [...parseNodes(r1), ...parseNodes(r2), ...parseNodes(r3)]
-      .filter(n => {
-        const key = n.workflowNodeType || n.name
-        if (seen.has(key)) return false
-        seen.add(key)
-        return true
-      })
+    const nodes = []
+    for (const q of NODE_QUERIES) {
+      try {
+        const r = await mcp.callTool('search_nodes', { query: q, limit: 200, includeOperations: false })
+        const text = r?.content?.[0]?.text || '{}'
+        const p = JSON.parse(text)
+        const batch = Array.isArray(p) ? p : (p.results || p.data || [])
+        for (const n of batch) {
+          const key = n.workflowNodeType || n.name
+          if (!seen.has(key)) { seen.add(key); nodes.push(n) }
+        }
+      } catch { /* continue si une requête échoue */ }
+    }
 
     // Workflows via MCP
     const wfResult = await mcp.listWorkflows(100)
@@ -66,7 +73,9 @@ async function getContext() {
     let workflows  = []
     try { workflows = JSON.parse(wfText) } catch { workflows = [] }
     if (!Array.isArray(workflows)) {
-      workflows = workflows.workflows || workflows.data || []
+      workflows = workflows.workflows || workflows.data || workflows || []
+      // S'assurer qu'on a bien un array
+      if (!Array.isArray(workflows)) workflows = []
     }
 
     cache.nodes     = nodes
@@ -143,10 +152,9 @@ app.post('/api/sessions/:id/chat', async (req, res) => {
   const session = sessions.get(req.params.id)
   if (!session) return res.status(404).json({ error: 'Session introuvable' })
 
-  // Enregistrer le message utilisateur
-  sessions.addMessage(req.params.id, 'user', message)
-
   try {
+    // Enregistrer le message utilisateur
+    sessions.addMessage(req.params.id, 'user', message)
     const ctx = await getContext()
 
     // Historique pour Gemini (sans les extras)
@@ -189,40 +197,70 @@ app.post('/api/sessions/:id/chat', async (req, res) => {
 
     res.json({ message: msg, workflow, actions, deployedId })
   } catch (e) {
-    const errMsg = `Erreur : ${e.message}`
-    sessions.addMessage(req.params.id, 'model', errMsg)
-    res.status(500).json({ error: e.message })
+    console.error('[chat] Erreur:', e.message)
+    try { sessions.addMessage(req.params.id, 'model', `❌ ${e.message}`) } catch {}
+    if (!res.headersSent) res.status(500).json({ error: e.message })
   }
 })
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const { randomUUID } = require('crypto')
+
+// Garantit que chaque node a un id UUID unique
+function ensureNodeIds(workflow) {
+  if (!workflow || !Array.isArray(workflow.nodes)) return workflow
+  const seen = new Set()
+  const nodes = workflow.nodes.map(n => {
+    let id = n.id
+    if (!id || seen.has(id)) id = randomUUID()
+    seen.add(id)
+    return { ...n, id }
+  })
+  return { ...workflow, nodes }
+}
 
 // ─── Actions directes MCP ─────────────────────────────────────────────────────
 
 // Déployer un workflow
 app.post('/api/workflows/deploy', async (req, res) => {
-  const { workflow, sessionId, activate = true } = req.body
-  if (!workflow) return res.status(400).json({ error: 'workflow requis' })
+  const { workflow: raw, sessionId, activate = true } = req.body
+  if (!raw) return res.status(400).json({ error: 'workflow requis' })
+  const workflow = ensureNodeIds(raw)
   try {
     const result  = await mcp.createWorkflow(workflow.name, workflow.nodes, workflow.connections)
     const content = result?.content?.[0]?.text || '{}'
-    const data    = JSON.parse(content)
-    if (activate && data.id) {
-      await mcp.activateWorkflow(data.id)
+    let data = {}
+    try { data = JSON.parse(content) } catch { data = {} }
+    // Le MCP peut retourner { message: "...created successfully with ID: XYZ" } sans champ id
+    if (!data.id) {
+      const match = content.match(/ID:\s*([A-Za-z0-9_-]+)/)
+      if (match) data.id = match[1]
     }
-    if (sessionId && data.id) {
+    if (!data.id) throw new Error(data.error || 'Déploiement échoué — ID introuvable dans la réponse MCP')
+
+    let activationWarning = null
+    if (activate) {
+      try { await mcp.activateWorkflow(data.id) }
+      catch (e) { activationWarning = e.message }
+    }
+
+    if (sessionId) {
       sessions.addMessage(sessionId, 'model',
         `✓ Workflow **${workflow.name}** déployé avec succès (ID: ${data.id})`,
         { deployedId: data.id, deployedName: workflow.name }
       )
     }
     cache.ts = 0
-    res.json({ id: data.id, name: workflow.name })
+    res.json({ id: data.id, name: workflow.name, activationWarning })
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
 // Valider un workflow
 app.post('/api/workflows/validate', async (req, res) => {
+  const workflow = ensureNodeIds(req.body.workflow)
   try {
-    const result  = await mcp.validateWorkflow(req.body.workflow)
+    const result  = await mcp.validateWorkflow(workflow)
     const content = result?.content?.[0]?.text || '{}'
     res.json(JSON.parse(content))
   } catch (e) { res.status(500).json({ error: e.message }) }
@@ -279,6 +317,13 @@ app.post('/api/workflows/:id/autofix', async (req, res) => {
     const content = result?.content?.[0]?.text || '{}'
     res.json(JSON.parse(content))
   } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// ─── Gestionnaire d'erreur global ────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  console.error('[Express] Erreur non gérée:', err.message)
+  if (!res.headersSent) res.status(500).json({ error: err.message || 'Erreur interne' })
 })
 
 // ─── SPA fallback ─────────────────────────────────────────────────────────────

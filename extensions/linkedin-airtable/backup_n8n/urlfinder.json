@@ -1,0 +1,68 @@
+{
+  "name": "Shodo - Trouveur URL LinkedIn (Gemini, manuel)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "uf-trigger-001",
+      "name": "Déclencheur manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "value": "appjbx1NZYVRvRqKR", "mode": "list" },
+        "table": { "value": "tbl1Qc2oJv8aiWhd5", "mode": "list" },
+        "options": {}
+      },
+      "id": "uf-read-001",
+      "name": "Airtable : Contacts CLIENTS",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [430, 300],
+      "retryOnFail": true, "maxTries": 3, "waitBetweenTries": 3000,
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\nconst http = this.helpers.httpRequest;\nconst GKEY = $env.GEMINI_API_KEY;\nconst MAX = 20;\nconst STAT = new Set(['À appeler', 'À relancer']);\nconst confMap = { haute: 'Haute', moyenne: 'Moyenne', faible: 'Faible' };\nconst todo = items.filter(f => STAT.has((f['Statut Prospection'] || '').toString().trim()) && !((f['LinkedIn URL'] || '').toString().trim())).slice(0, MAX);\nconst out = [];\nfor (const f of todo) {\n  const id = f.id;\n  const prenom = (f['Prénom'] || '').toString().trim();\n  const nom = (f['Nom'] || '').toString().trim();\n  const full = (prenom + ' ' + nom).trim() || (f['Profile Name'] || '').toString().trim();\n  const comp = (f['Company Name'] || '').toString().trim();\n  const poste = (f['Poste'] || '').toString().trim();\n  if (!id || !full) continue;\n  let url = '', conf = 'faible';\n  try {\n    if (GKEY) {\n      const prompt = \"Trouve l'URL exacte du profil LinkedIn de cette personne précise.\\n\" +\n        'Nom: ' + full + '\\n' + (comp ? ('Entreprise: ' + comp + '\\n') : '') + (poste ? ('Poste: ' + poste + '\\n') : '') +\n        'Cherche sur le web (site:linkedin.com/in). L URL doit commencer par https://www.linkedin.com/in/ ou https://fr.linkedin.com/in/.\\n' +\n        \"Vérifie que l'entreprise et/ou le poste correspondent. Si tu n'es pas certain que ce soit LA bonne personne, mets confiance 'faible'.\\n\" +\n        'Réponds STRICTEMENT en JSON sur une seule ligne, sans aucun texte autour: {\"url\":\"...\",\"confiance\":\"haute|moyenne|faible\"}. Si aucun profil fiable trouvé: {\"url\":\"\",\"confiance\":\"faible\"}.';\n      const r = await http({ method: 'POST', url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(GKEY), body: { contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0 } }, json: true, timeout: 20000 });\n      const parts = (r && r.candidates && r.candidates[0] && r.candidates[0].content && r.candidates[0].content.parts) || [];\n      const txt = parts.map(p => p.text || '').join(' ');\n      const mj = txt.match(/\\{[\\s\\S]*?\\}/);\n      if (mj) { try { const o = JSON.parse(mj[0]); url = (o.url || '').toString().trim(); conf = (o.confiance || 'faible').toString().toLowerCase().trim(); } catch (e) {} }\n      if (url && !/linkedin\\.com\\/in\\//i.test(url)) { url = ''; conf = 'faible'; }\n      if (!url) conf = 'faible';\n    }\n  } catch (e) {}\n  out.push({ json: { id: id, 'LinkedIn URL (proposé)': url, 'Confiance URL': confMap[conf] || 'Faible' } });\n}\nreturn out;"
+      },
+      "id": "uf-gemini-001",
+      "name": "Gemini : trouver URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": { "value": "appjbx1NZYVRvRqKR", "mode": "list" },
+        "table": { "value": "tbl1Qc2oJv8aiWhd5", "mode": "list" },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": ["id"],
+          "schema": [
+            { "id": "id", "displayName": "id", "type": "string" },
+            { "id": "LinkedIn URL (proposé)", "displayName": "LinkedIn URL (proposé)", "type": "string" },
+            { "id": "Confiance URL", "displayName": "Confiance URL", "type": "string" }
+          ]
+        },
+        "options": { "typecast": true }
+      },
+      "id": "uf-update-001",
+      "name": "Airtable : Écrire URL proposée",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [890, 300],
+      "retryOnFail": true, "maxTries": 3, "waitBetweenTries": 3000,
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    }
+  ],
+  "connections": {
+    "Déclencheur manuel": { "main": [[{ "node": "Airtable : Contacts CLIENTS", "type": "main", "index": 0 }]] },
+    "Airtable : Contacts CLIENTS": { "main": [[{ "node": "Gemini : trouver URL", "type": "main", "index": 0 }]] },
+    "Gemini : trouver URL": { "main": [[{ "node": "Airtable : Écrire URL proposée", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "saveDataSuccessExecution": "all", "saveDataErrorExecution": "all" }
+}

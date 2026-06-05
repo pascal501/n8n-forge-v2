@@ -72,3 +72,49 @@ Scripts helper : dossier `backup_n8n/` (deploy_*.js, read_*.js via Node, UTF-8 p
 4. Puis **Porte B** (migration Contacts LinkedIn staging + suggestion Google Chat) et **nettoyage dette** (fusion liens `Entreprise`/`Companies 2`).
 
 **Garde-fou** : rien n'entre dans Companies sans `Qualif IA = Client final` → AUTOENTREPRENEUR/ESN/déchets incubés restent bloqués en Cibles, ne polluent jamais le CRM.
+
+---
+
+## MAJ 2026-06-05 — Enrichissement URLs LinkedIn (prospection)
+
+**Objectif** : préparer la prospection (comptes Rennes/Nantes). Cible = contacts **CLIENTS/Contacts** au statut `Statut Prospection` ∈ {À appeler, À relancer} = **241 contacts**.
+
+**TOUT se passe dans UNE seule table** : base **CLIENTS** `appjbx1NZYVRvRqKR` → table **Contacts** `tbl1Qc2oJv8aiWhd5`. Rien dans LinkedIn Contact Management, rien en staging.
+
+**Diagnostic complétude des 241** (script `analyze_contacts.js`) :
+- `LinkedIn URL` vide : **63 / 241**
+- Email vide : 67% · Téléphone vide : 75% · `Profile PDF` (CV) vide : **100%** · `Profile Summary` vide : 100%
+
+**2 champs créés dans CLIENTS/Contacts :**
+| Champ | id | Type | Rôle |
+|-------|-----|------|------|
+| `LinkedIn URL (proposé)` | fldix7BSEG4T3Z3iP | url | brouillon/staging des URLs trouvées |
+| `Confiance URL` | fldktaxGfvS7Itnpk | singleSelect (Haute/Moyenne/Faible) | niveau de confiance |
+
+Champ live existant utilisé : `LinkedIn URL` = **fldvNRj7MBoTWmSLx**.
+
+**Méthode de recherche d'URL — comparatif testé :**
+| Méthode | Recall | Verdict |
+|---------|--------|---------|
+| Gemini 2.5 Flash + google_search grounding | ~5% (1/20) | ❌ n'émet pas les slugs `/in/` |
+| DuckDuckGo scrape serveur | 0% | ❌ bloqué (HTTP 202 anti-bot) |
+| Claude-for-Chrome (X-Ray navigateur) | — | ❌ bloqué : « Grouping not supported » (tab groups désactivés par policy entreprise) |
+| **WebSearch (agent) + désambiguïsation manuelle** | **60% (38/63)** | ✅ **méthode retenue** |
+
+⚠️ **IMPORTANT** : la recherche d'URL a été faite **par l'agent (moi) à la main** via l'outil WebSearch, **PAS** par un workflow n8n autonome. Pour refaire une passe → redemander à l'agent. Le workflow n8n « Trouveur URL LinkedIn (Gemini, manuel) » (id **nrMgGBY3mXsyL5Cp**) est **archivé/abandonné** (Gemini insuffisant).
+
+**Résultat des 63 traités** : 29 Haute · 9 Moyenne · 25 Faible.
+**Promotion** (sur validation user) : les **38** (Haute+Moyenne) recopiés du champ `proposé` → champ live `LinkedIn URL`. Le champ `proposé` + `Confiance URL` restent comme **trace d'audit**.
+→ Contacts avec URL : **178 → 216 / 241**.
+
+**Intel collectée pendant la passe** (à reporter dans la base) :
+- **CATS** = Crédit Agricole Technologies et Services
+- **Cityzen (Apo)** → plusieurs personnes désormais chez **Arche MC2** (rebrand/rachat probable)
+- Prénoms/noms corrigés : Céline (≠Cécile) Danilo, Erwan Pigneul, Jérémy Lefrère, Erwan de Malézieu, Michel Le Nouy…
+
+**RESTE À FAIRE :**
+1. **25 contacts Faible** = noms mal saisis (`GALL LE`, `BROCHADO`, `KURZ`, `Malézieu De`, `B FAUCHOUX`, `DENIS`, `Pigneul` sans prénom…) → corriger les noms dans la base, puis redemander une passe X-Ray.
+2. **Vérifier les 9 Moyenne** (tri `Confiance URL` = Moyenne) : Pouliquen, Secher, Gaborieau, Sicre, Gaidier, Trécherel, Desmarest, Cailley, Guillemot (souvent : bon profil mais entreprise actuelle ≠ celle de la base).
+3. **GROS CHANTIER — Scraping CV + coordonnées** des ~216 contacts qui ont une URL (email 67% vide, tél 75% vide, CV 100% vide). Méthode à trancher : **extension Chrome** (manuel, gratuit, sûr) vs **API payante** (ProxyCurl/Apify, auto). ⚠️ n8n ne peut PAS reproduire le scraping (mur login LinkedIn + PDF natif = navigateur connecté uniquement).
+
+**Scripts créés** : `analyze_contacts.js`, `extract_todo63.js` (→ `todo63.json`), `test_gemini_url.js`, `test_ddg.js`, `inspect_gemini.js`, `urlfinder.json` + `deploy_urlfinder.js` (workflow abandonné), `read_urlfinder.js`.

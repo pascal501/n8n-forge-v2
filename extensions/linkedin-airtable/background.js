@@ -252,10 +252,12 @@ async function generateGeminiSummary(apiKey, profile, mutualContacts, classifica
     `Poste actuel : ${profile.position || ""}`,
     `Entreprise actuelle : ${profile.company || ""}`,
     profile.location ? `Localisation : ${profile.location}` : "",
-    profile.summary ? `À propos (texte exact du profil) : ${profile.summary}` : "",
     expText ? `Expériences (extraites du profil) :\n${expText}` : "",
     eduText ? `Formations (extraites du profil) :\n${eduText}` : "",
     mutualNames ? `Relations en commun : ${mutualNames}` : "",
+    // Source de vérité : TOUT le texte visible de la page (à propos, expériences,
+    // formations, compétences…). Gemini doit analyser CECI en priorité.
+    profile.rawText ? `\n=== CONTENU COMPLET VISIBLE DE LA PAGE (source de vérité — analyse ceci) ===\n${profile.rawText}` : "",
   ].filter(Boolean).join("\n");
 
   let prompt;
@@ -1023,6 +1025,7 @@ async function enrichOneRecord(record, config) {
         summary:       profileSummary    || old["Profile Summary"] || "",
         experiences:   profile.experiences || [],
         education:     profile.education   || [],
+        rawText:       profile.rawText    || "",
       };
       const txt = generateProfilePDF(pdfProfile);
       pdf = `data:application/pdf;base64,${btoa(txt)}`;
@@ -1047,6 +1050,7 @@ async function enrichOneRecord(record, config) {
     expCount: (profile.experiences || []).length,
     eduCount: (profile.education || []).length,
     sumLen:   (profileSummary || "").length,
+    rawLen:   (profile.rawText || "").length,
   };
 }
 
@@ -1086,7 +1090,7 @@ async function runBatch(config) {
         const r = await enrichOneRecord(record, config);
         batchState.ok++;
         const changes = r.histEntry ? r.histEntry.split("\n").filter(l => l.startsWith("•")).length : 0;
-        batchLog(`(${i + 1}/${queue.length}) ✅ ${r.name} — ${changes} chp, PDF: ${r.pdfSource || "non"} | scrape: ${r.expCount} exp, ${r.eduCount} formation(s), résumé ${r.sumLen}c`);
+        batchLog(`(${i + 1}/${queue.length}) ✅ ${r.name} — ${changes} chp, PDF: ${r.pdfSource || "non"} | page: ${r.rawLen}c scrapés, ${r.expCount} exp, résumé ${r.sumLen}c`);
       } catch (e) {
         batchState.failed++;
         batchState.lastError = e.message;

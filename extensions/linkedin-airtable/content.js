@@ -251,9 +251,32 @@
       if (raw.length > 20) p.summary = raw;
     }
 
-    // Expériences + Formations
+    // Expériences + Formations (sélecteurs ciblés, best-effort)
     p.experiences = sectionItems(findSection("experience", /^(Exp[ée]riences?|Experiences?)/i), 12);
     p.education   = sectionItems(findSection("education",  /^(Formations?|[ÉE]ducation)/i), 10);
+
+    // ── TEXTE COMPLET VISIBLE (la méthode robuste) ───────────────────────────
+    // Plutôt que de deviner chaque section, on capture TOUT ce qui est affiché
+    // dans <main> : à propos, expériences, formations, compétences… Si l'utilisateur
+    // le voit, c'est là. On nettoie le bruit UI et les doublons lecteur-d'écran.
+    p.rawText = "";
+    try {
+      const main = document.querySelector("main");
+      if (main) {
+        const noise = /^(Statut|Status|S'inscrire|Se connecter|Se désinscrire|Suivre|Follow|Following|Message|Envoyer un message|Plus|More|En voir plus|Voir le profil|Voir tout|Show all|Activité|Activity|Chargement|Loading|\d+\s*(abonnés|relations|followers|connections)|Premium|Promu|Promoted|Ad)$/i;
+        const out = [];
+        for (let line of (main.innerText || "").split("\n")) {
+          line = line.replace(/\s+/g, " ").trim();
+          if (!line) { if (out[out.length - 1] !== "") out.push(""); continue; }
+          if (noise.test(line)) continue;
+          // LinkedIn duplique chaque libellé (affiché + lecteur d'écran) → on retire
+          // les doublons consécutifs identiques.
+          if (out.length && out[out.length - 1].toLowerCase() === line.toLowerCase()) continue;
+          out.push(line);
+        }
+        p.rawText = out.join("\n").slice(0, 9000);
+      }
+    } catch (e) { /* best-effort */ }
 
     // Email + Téléphone : gérés côté background via onglet dédié
     // (LinkedIn rend le contenu en JS, un simple fetch ne suffit pas)

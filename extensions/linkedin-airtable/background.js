@@ -553,6 +553,10 @@ async function handleSave(profile, config, tabId, classifications = {}) {
 
     // Historisation : une seule entrée datée (+ delta des changements) en tête de Notes
     const old = existing.fields || {};
+    // PROTECTION : Email + Téléphone ne sont jamais écrasés
+    if (old["Email"]) delete fields["Email"];
+    if (old["Téléphone"]) delete fields["Téléphone"];
+
     const { entry, changeCount } = buildHistoryEntry(old, {
       location: profile.location, company: profile.company,
       companyUrl: profile.companyUrl, email, phone,
@@ -933,6 +937,7 @@ async function enrichOneRecord(record, config) {
   });
 
   // 4. Champs à mettre à jour (on n'écrit que ce qui a une valeur fraîche)
+  // PROTECTION : Email + Téléphone ne sont jamais écrasés, seulement remplis si vides
   const fields = {};
   if (profile.fullName)  fields["Profile Name"]    = profile.fullName;
   if (profile.firstName) fields["Prénom"]          = profile.firstName;
@@ -941,8 +946,8 @@ async function enrichOneRecord(record, config) {
   if (profile.company)    fields["Company Name"]            = profile.company;
   if (profile.companyUrl) fields["Entreprise profile URL"] = profile.companyUrl;
   if (profile.location)  fields["Location"]        = profile.location;
-  if (profile.email)     fields["Email"]           = profile.email;
-  if (cleanPhone)        fields["Téléphone"]       = cleanPhone;
+  if (profile.email && !old["Email"])     fields["Email"]           = profile.email;
+  if (cleanPhone && !old["Téléphone"])    fields["Téléphone"]       = cleanPhone;
   if (profile.website)   fields["Site web"]        = profile.website;
   if (profile.connectedDate) fields["Connecté le"] = profile.connectedDate;
   if (profileSummary)    fields["Profile Summary"] = profileSummary;

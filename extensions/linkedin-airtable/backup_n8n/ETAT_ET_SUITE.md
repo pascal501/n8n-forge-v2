@@ -139,3 +139,12 @@ Champ live existant utilisé : `LinkedIn URL` = **fldvNRj7MBoTWmSLx**.
 4. Popup extension → bouton batch → count 200 → Start. ~200/run → 2 runs pour les ~216. Laisser Chrome éveillé (~2-3h/run avec 45s de pause).
 
 Récupère par fiche : Prénom/Nom/Poste/Company Name/Location/Email/Téléphone/Site web/Connecté le/Profile Summary/Photo Profile/**Profile PDF natif** + historique daté dans Notes.
+
+**CORRECTION CRITIQUE (protection Email/Téléphone)** : l'extension écrasait les emails pro (ex. Orange) par des emails perso (gmail) du LinkedIn. Modifié :
+- **enrichOneRecord** (batch) : `if (profile.email && !old["Email"])` → ne remplit Email que s'il est vide
+- **handleSave** (manuel) : après UPDATE détecté, supprime Email/Téléphone de `fields` s'ils existent déjà
+- **Effet** : anciennes valeurs pro sont PROTÉGÉES, nouvelles du LinkedIn ne peuvent pas écraser. Les notes tracent quand même les deltas des autres champs.
+
+**POUR CONTINUER le batch après cette correction** :
+1. Recharger extension (`chrome://extensions` → ↻)
+2. Bouton batch → count 200 → Démarrer. Comme 12 contacts ont déjà un PDF, ils seront sautés automatiquement. Le batch reprend aux 13e contact et continue (~204 restants).

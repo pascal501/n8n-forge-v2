@@ -118,3 +118,24 @@ Champ live existant utilisé : `LinkedIn URL` = **fldvNRj7MBoTWmSLx**.
 3. **GROS CHANTIER — Scraping CV + coordonnées** des ~216 contacts qui ont une URL (email 67% vide, tél 75% vide, CV 100% vide). Méthode à trancher : **extension Chrome** (manuel, gratuit, sûr) vs **API payante** (ProxyCurl/Apify, auto). ⚠️ n8n ne peut PAS reproduire le scraping (mur login LinkedIn + PDF natif = navigateur connecté uniquement).
 
 **Scripts créés** : `analyze_contacts.js`, `extract_todo63.js` (→ `todo63.json`), `test_gemini_url.js`, `test_ddg.js`, `inspect_gemini.js`, `urlfinder.json` + `deploy_urlfinder.js` (workflow abandonné), `read_urlfinder.js`.
+
+---
+
+## MAJ 2026-06-05 (suite) — Scraping coordonnées/CV via l'extension (MODE BATCH)
+
+**Découverte clé** : l'extension Chrome (`background.js`) a déjà un **MODE BATCH** (`runBatch`) qui enrichit AUTOMATIQUEMENT les contacts `{LinkedIn URL != '', Profile PDF = ''}` : ouvre chaque profil en onglet caché → scrape texte/photo/**coordonnées (email/tél)**/**PDF natif LinkedIn**/résumé Gemini → PATCH la fiche → historise dans Notes → pause anti-ban (45s). Cap 200/run, resumable (saute ceux qui ont déjà un PDF).
+
+⚠️ **n8n NE PEUT PAS faire ce scraping** (mur login LinkedIn + PDF natif = session navigateur connectée uniquement). **Claude-for-Chrome bloqué** sur ce poste (tab groups désactivés). → **l'extension est le seul outil**, et son mode batch = semi-auto (1 clic, puis ça tourne seul).
+
+**Adaptation faite pour cibler CLIENTS/Contacts (`tbl1Qc2oJv8aiWhd5`) :**
+- 6 champs ajoutés à CLIENTS/Contacts : `Notes` (fldz21w9Q45iEXm5U), `Site web` (fldYvMrEvWn1M2Z4Z), `Connecté le` (fldXVXsaQi4bRcQ70), `Entreprise profile URL` (fldcbbwI3dLln4y8y), `Confirmed as Prospect` (flds9z4fBQwvE20Xl), `Confirmed as Resource` (fldR2Yn68FLwIpyIp).
+- `background.js` : company scrapée écrite dans **`Company Name`** (texte) au lieu de `Entreprise` (qui est un lien vers Companies) — `replace_all fields["Entreprise"]→fields["Company Name"]` + delta `buildHistoryEntry` + `fetchBatchQueue` fields[] alignés.
+- `fetchBatchQueue` formule filtrée : `AND({LinkedIn URL}!='', {Profile PDF}='', OR({Statut Prospection}='À appeler', ='À relancer'))` → cible exactement les contacts de prospection.
+
+**POUR LANCER (utilisateur) :**
+1. `chrome://extensions` → **recharger** l'extension (prend en compte le code modifié).
+2. Options de l'extension : **Base ID = `appjbx1NZYVRvRqKR`**, **Table ID = `tbl1Qc2oJv8aiWhd5`**, **token Airtable avec accès à la base CLIENTS** (scopes `data.records:read/write` + `schema.bases:read`), Gemini key (optionnel = résumés IA).
+3. Être **connecté à LinkedIn** dans ce Chrome.
+4. Popup extension → bouton batch → count 200 → Start. ~200/run → 2 runs pour les ~216. Laisser Chrome éveillé (~2-3h/run avec 45s de pause).
+
+Récupère par fiche : Prénom/Nom/Poste/Company Name/Location/Email/Téléphone/Site web/Connecté le/Profile Summary/Photo Profile/**Profile PDF natif** + historique daté dans Notes.

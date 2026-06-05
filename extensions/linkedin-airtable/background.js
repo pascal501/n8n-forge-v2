@@ -240,12 +240,18 @@ async function getProfileExtras(linkedinUrl, mutualUrl) {
 async function generateGeminiSummary(apiKey, profile, mutualContacts, classifications = {}) {
   const mutualNames = (mutualContacts || []).map(c => c.name).join(", ");
 
-  // Données du profil envoyées à Gemini
+  // Données du profil envoyées à Gemini — on lui donne TOUT le factuel scrapé
+  // (expériences + formations comprises) pour qu'il analyse au lieu d'inventer.
+  const expText = (profile.experiences || []).slice(0, 12).join("\n");
+  const eduText = (profile.education || []).slice(0, 8).join("\n");
   const profileData = [
     `Nom : ${profile.fullName || ""}`,
     `Poste actuel : ${profile.position || ""}`,
     `Entreprise actuelle : ${profile.company || ""}`,
-    profile.summary ? `À propos / Parcours : ${profile.summary}` : "",
+    profile.location ? `Localisation : ${profile.location}` : "",
+    profile.summary ? `À propos (texte exact du profil) : ${profile.summary}` : "",
+    expText ? `Expériences (extraites du profil) :\n${expText}` : "",
+    eduText ? `Formations (extraites du profil) :\n${eduText}` : "",
     mutualNames ? `Relations en commun : ${mutualNames}` : "",
   ].filter(Boolean).join("\n");
 
@@ -292,8 +298,19 @@ async function generateGeminiSummary(apiKey, profile, mutualContacts, classifica
       "Sois factuel, neutre, sans orientation commerciale particulière.\n\n--- PROFIL ---\n" + profileData;
   }
 
-  // Consigne commune : pas de préambule conversationnel, commence directement le contenu
-  prompt += "\n\nIMPORTANT : Commence DIRECTEMENT par le contenu de la fiche. " +
+  // Règle ABSOLUE anti-hallucination — la priorité sur tout le reste
+  prompt += "\n\n=== RÈGLE ABSOLUE — ZÉRO HALLUCINATION ===\n" +
+    "- Utilise EXCLUSIVEMENT les informations présentes dans les données ci-dessus. " +
+    "N'invente JAMAIS une entreprise, une date, une durée, un nombre d'années, un diplôme, " +
+    "une compétence ou un fait qui n'y figure pas explicitement.\n" +
+    "- Si une information demandée (années d'expérience, anciennes entreprises, formation, séniorité…) " +
+    "n'est PAS dans les données fournies, NE L'INVENTE PAS : écris « non précisé » ou n'en parle pas du tout.\n" +
+    "- Ton rôle est d'ANALYSER et SYNTHÉTISER le factuel fourni, PAS de combler les trous par des suppositions " +
+    "plausibles. Une supposition plausible mais non vérifiée = une hallucination interdite.\n" +
+    "- Reste TRÈS proche du texte source. Adapte la longueur à la matière disponible : " +
+    "si le profil contient peu d'informations, fais un résumé COURT. Ne rallonge jamais en inventant.\n" +
+    "- En cas de doute, choisis toujours la version factuelle et concise plutôt que détaillée et incertaine.\n\n" +
+    "IMPORTANT : Commence DIRECTEMENT par le contenu de la fiche. " +
     "N'écris AUCUNE phrase d'introduction du type « Voici une fiche... » ni de titre, " +
     "ni de séparateurs « --- ». Va droit au but.";
 
@@ -304,7 +321,7 @@ async function generateGeminiSummary(apiKey, profile, mutualContacts, classifica
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.4,
+        temperature: 0.2,
         maxOutputTokens: 1500,
         // IMPORTANT : gemini-2.5-flash active un mode "thinking" qui consomme tout
         // le budget de tokens en réflexion interne → réponse tronquée. On le coupe.

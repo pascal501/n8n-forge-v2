@@ -186,66 +186,58 @@
     }
 
     // Résumé — LinkedIn place un ancre id="about" avant la section
-    // AMÉLIORATION : clique sur "Plus" pour développer le texte complet
+    // AMÉLIORATION : clique sur "Plus"/"Show more" pour développer le texte complet
     p.summary = "";
     const aboutAnchor = document.getElementById("about");
     if (aboutAnchor) {
       const sec = aboutAnchor.closest("section") || aboutAnchor.parentElement;
       if (sec) {
-        // Cherche le bouton "Plus" ou "...show more" et le clique
-        const moreBtn = Array.from(sec.querySelectorAll("button")).find(btn =>
-          /^(Plus|Show more|\.\.\.)/i.test((btn.innerText || "").trim())
-        );
+        // Cherche et clique sur le bouton "Plus"/"Show more" (plusieurs formats possibles)
+        const btns = Array.from(sec.querySelectorAll("button"));
+        const moreBtn = btns.find(btn => {
+          const txt = (btn.innerText || btn.textContent || "").trim();
+          return /plus|more|voir|expand|show/i.test(txt) && txt.length < 20;
+        });
         if (moreBtn) {
-          moreBtn.click();
-          await new Promise(r => setTimeout(r, 500)); // attend le développement
+          try { moreBtn.click(); await new Promise(r => setTimeout(r, 800)); } catch (e) {}
         }
-        const spans = sec.querySelectorAll("span[aria-hidden='true']");
-        const raw = spans.length > 0
-          ? Array.from(spans).map(s => text(s)).filter(Boolean).join(" ")
-          : text(sec).replace(/^(À propos|About)\s*/i, "").trim();
-        if (raw.length > 20) p.summary = raw;
-      }
-    }
-    // Fallback : cherche la section par son titre
-    if (!p.summary) {
-      for (const sec of document.querySelectorAll("main section")) {
-        const h = sec.querySelector("h2, h3");
-        if (h && /^(À propos|About)$/i.test(text(h).trim())) {
-          const raw = text(sec).replace(/^(À propos|About)\s*/i, "").trim();
-          if (raw.length > 20) { p.summary = raw; break; }
-        }
+        // Scrape le contenu textuel (toujours plus fiable que les sélecteurs spécifiques)
+        const raw = text(sec).replace(/^(À propos|About)\s*/i, "").trim();
+        if (raw.length > 30) p.summary = raw; // au moins 30 chars
       }
     }
 
-    // Expériences (Work Experience)
+    // Expériences (Work Experience) — scrape robuste par texte visible
     p.experiences = [];
     for (const sec of document.querySelectorAll("main section")) {
       const h = sec.querySelector("h2, h3");
       if (h && /^(Expérience|Experience)$/i.test(text(h).trim())) {
-        // Chaque poste est dans un <li> ou un div avec le titre du poste
-        const items = sec.querySelectorAll("li, [class*='experience'], [class*='job']");
-        for (const item of items) {
-          const title = Array.from(item.querySelectorAll("*"))
-            .find(el => el.tagName.match(/^(H|SPAN)/i) && text(el).length > 5);
-          if (title) {
-            const itemText = text(item).substring(0, 200); // max 200 chars par poste
-            if (itemText.trim()) p.experiences.push(itemText);
+        // Prend tout le texte de la section (plus robuste que sélecteurs complexes)
+        const fullText = text(sec).replace(/^(Expérience|Experience)\s*/i, "").trim();
+        if (fullText.length > 20) {
+          // Découpe en items (généralement séparés par les postes/dates)
+          const lines = fullText.split(/\n\n+/);
+          for (const line of lines) {
+            const item = line.trim().substring(0, 250);
+            if (item.length > 15) p.experiences.push(item);
           }
         }
         break;
       }
     }
 
-    // Formations (Education)
+    // Formations (Education) — scrape robuste par texte visible
     p.education = [];
     for (const sec of document.querySelectorAll("main section")) {
       const h = sec.querySelector("h2, h3");
       if (h && /^(Formation|Education)$/i.test(text(h).trim())) {
-        const items = sec.querySelectorAll("li, [class*='education'], [class*='school']");
-        for (const item of items) {
-          const itemText = text(item).substring(0, 200);
-          if (itemText.trim()) p.education.push(itemText);
+        const fullText = text(sec).replace(/^(Formation|Education)\s*/i, "").trim();
+        if (fullText.length > 20) {
+          const lines = fullText.split(/\n\n+/);
+          for (const line of lines) {
+            const item = line.trim().substring(0, 250);
+            if (item.length > 15) p.education.push(item);
+          }
         }
         break;
       }

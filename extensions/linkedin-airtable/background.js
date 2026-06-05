@@ -99,7 +99,10 @@ function parseConnectedDate(raw) {
 }
 
 async function getProfileExtras(linkedinUrl, mutualUrl) {
-  const profileUrl = linkedinUrl.replace(/\/$/, "").split("?")[0] + "/";
+  // Normalise le sous-domaine pays (fr./dz./hk./be./ca…) vers www. : le content
+  // script n'est garanti que sur www.linkedin.com, et www sert le profil authentifié complet.
+  const profileUrl = linkedinUrl.replace(/\/$/, "").split("?")[0]
+    .replace(/^(https?:\/\/)[a-z]{2,3}\.linkedin\.com/i, "$1www.linkedin.com") + "/";
   const tab = await chrome.tabs.create({ url: profileUrl, active: false });
   const out = { email: "", phone: "", website: "", connectedRaw: "", mutualContacts: [] };
 
@@ -780,7 +783,10 @@ function buildHistoryEntry(oldFields, fresh) {
 // Ouvre l'URL, attend le rendu, demande le scrape au content script, récupère
 // les coordonnées (email/tel/site) puis le PDF natif. Ferme l'onglet à la fin.
 async function enrichProfileInTab(linkedinUrl) {
-  const profileUrl = linkedinUrl.replace(/\/$/, "").split("?")[0] + "/";
+  // Normalise le sous-domaine pays (fr./dz./hk./be./ca…) vers www. : le content
+  // script n'est garanti que sur www.linkedin.com, et www sert le profil authentifié complet.
+  const profileUrl = linkedinUrl.replace(/\/$/, "").split("?")[0]
+    .replace(/^(https?:\/\/)[a-z]{2,3}\.linkedin\.com/i, "$1www.linkedin.com") + "/";
   const tab = await chrome.tabs.create({ url: profileUrl, active: false });
   const result = { profile: null, pdfDataUrl: null, pdfSource: "", photoB64: null };
 

@@ -11,14 +11,14 @@
     "windows"
   ],
   "host_permissions": [
-    "https://www.linkedin.com/*",
+    "https://*.linkedin.com/*",
     "https://api.airtable.com/*",
     "https://content.airtable.com/*",
     "https://generativelanguage.googleapis.com/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://www.linkedin.com/in/*"],
+      "matches": ["https://*.linkedin.com/in/*"],
       "js": ["content.js"],
       "run_at": "document_idle"
     }

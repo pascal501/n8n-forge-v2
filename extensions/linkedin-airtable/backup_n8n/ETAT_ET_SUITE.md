@@ -179,3 +179,11 @@ Résultat : PDF fallback inclut maintenant le profil **complet** — tout ce qu'
 - `askScrape()` retries : 5 → 10 retries, délai 1s → 1.5s (total jusqu'à 15s)
 
 Résultat : content script a maintenant jusqu'à 15s pour répondre au message de scrape (vs 5s avant). Élimine « muet » et permet à LinkedIn de bien rendre avant scrape.
+
+**FIX CRITIQUE — sous-domaines pays** (2026-06-05, suite V) : « content script muet » persistait. ROOT CAUSE = la majorité des URLs LinkedIn sont sur des **sous-domaines pays** (`fr.`, `dz.`, `hk.`, `be.`, `ca.`, `uk.`, `lb.`, `sn.`, `ci.`, `cm.`, `bg.`, `ae.`, `ec.`, `ga.`, `qa.`, `ml.`, `re.`, `gp.`), PAS `www.`. Or le manifest n'injectait le content script QUE sur `https://www.linkedin.com/in/*` → sur tout sous-domaine pays, content script jamais chargé → muet. Seuls les contacts en `www.` (Fabien, Alfredo…) passaient.
+
+Fix double :
+- `manifest.json` : `matches` + `host_permissions` élargis à `https://*.linkedin.com/*` (tous sous-domaines).
+- `background.js` : normalisation de l'URL avant ouverture de l'onglet — `xx.linkedin.com` → `www.linkedin.com` (regex sous-domaine 2-3 lettres → www). Appliqué dans `enrichProfileInTab` ET `getProfileExtras`. www sert le profil authentifié complet.
+
+⚠️ **DATA QUALITY À SURVEILLER** : plusieurs URLs pointent vers de **mauvaises personnes** (homonymes étrangers) — ex. Thierno Barry sur `hk.` (Hong Kong, « Directeur Amazon »), Niki Tamere sur `lb.` (Liban), Ilias Mara sur `be.`. Certains contacts sont aussi des **profils junk/fake** (« Niki Tamere », « Zinou Zinou », « anime ar-pro »). En run 1, Gemini a **halluciné** des résumés pro élaborés sur ces profils minces (ex. Niki Tamere = « DG Google »). À nettoyer : vérifier les URLs douteuses (sous-domaines exotiques pour des prospects Rennes/Nantes) avant de se fier aux résumés.

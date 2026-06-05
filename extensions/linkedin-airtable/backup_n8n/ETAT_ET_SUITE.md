@@ -158,3 +158,17 @@ Récupère par fiche : Prénom/Nom/Poste/Company Name/Location/Email/Téléphone
 
 Mod `pdf-generator.js` : ajout location (en-tête) + website + connectedDate (coordonnées).
 Mod `background.js` ligne 639 : pass `website` + `connectedDate` au `generateProfilePDF()` en fallback.
+
+**SCRAPING AMÉLIORÉ** (2026-06-05, suite III) : ajout Expériences, Formations, About complet.
+
+`content.js` : 
+- About : clique sur bouton « Plus » pour développer le texte complet avant scrape
+- Expériences : scrape la section Expérience (Work Experience) — liste de 10 postes max
+- Formations : scrape la section Formation (Education) — liste de 10 formations max
+
+`pdf-generator.js` :
+- Affiche Expériences (jusqu'à 10 postes, 3 lignes max/poste)
+- Affiche Formations (jusqu'à 10 formations, 2 lignes max)
+- Améliore About : maintenant développé et complet via le clic « Plus »
+
+Résultat : PDF fallback inclut maintenant le profil **complet** — tout ce qu'on voit sur LinkedIn en ouvrant la page et les onglets Expérience/Formation.

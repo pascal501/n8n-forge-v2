@@ -141,6 +141,42 @@ function generateProfilePDF(profile) {
       cmds.push(`BT /F2 9 Tf 30 ${y} Td (${ps(line)}) Tj ET`);
       y -= 13;
     }
+    y -= 8;
+    cmds.push(`0.8 0.8 0.8 rg 30 ${y} 535 0.5 re f 0 0 0 rg`);
+    y -= 14;
+  }
+
+  // Expériences (Work Experience)
+  if (profile.experiences && profile.experiences.length > 0) {
+    cmds.push(`BT /F1 10 Tf 30 ${y} Td (Experiences) Tj ET`);
+    y -= 14;
+    for (const exp of profile.experiences.slice(0, 10)) {
+      if (y < 40) break;
+      for (const line of wrap(exp, 88).slice(0, 3)) {
+        if (y < 40) break;
+        cmds.push(`BT /F2 8 Tf 30 ${y} Td (${ps(line)}) Tj ET`);
+        y -= 12;
+      }
+      y -= 6; // espacement entre postes
+    }
+    y -= 8;
+    cmds.push(`0.8 0.8 0.8 rg 30 ${y} 535 0.5 re f 0 0 0 rg`);
+    y -= 14;
+  }
+
+  // Formations (Education)
+  if (profile.education && profile.education.length > 0) {
+    cmds.push(`BT /F1 10 Tf 30 ${y} Td (Formation) Tj ET`);
+    y -= 14;
+    for (const edu of profile.education.slice(0, 10)) {
+      if (y < 40) break;
+      for (const line of wrap(edu, 88).slice(0, 2)) {
+        if (y < 40) break;
+        cmds.push(`BT /F2 8 Tf 30 ${y} Td (${ps(line)}) Tj ET`);
+        y -= 12;
+      }
+      y -= 6; // espacement entre formations
+    }
   }
 
   // Pied de page

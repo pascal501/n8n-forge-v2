@@ -103,7 +103,10 @@ async function getProfileExtras(linkedinUrl, mutualUrl) {
   // script n'est garanti que sur www.linkedin.com, et www sert le profil authentifié complet.
   const profileUrl = linkedinUrl.replace(/\/$/, "").split("?")[0]
     .replace(/^(https?:\/\/)[a-z]{2,3}\.linkedin\.com/i, "$1www.linkedin.com") + "/";
-  const tab = await chrome.tabs.create({ url: profileUrl, active: false });
+  // active: true → l'onglet s'affiche, donnant un VRAI viewport à LinkedIn, qui ne
+  // charge les sections About/Expérience/Formation que lorsqu'elles deviennent
+  // visibles (IntersectionObserver). En onglet caché, elles restaient vides.
+  const tab = await chrome.tabs.create({ url: profileUrl, active: true });
   const out = { email: "", phone: "", website: "", connectedRaw: "", mutualContacts: [] };
 
   // Helper : attend que l'onglet ait fini de charger
@@ -1038,7 +1041,13 @@ async function enrichOneRecord(record, config) {
     }
   }
 
-  return { name: profile.fullName || old["Profile Name"] || "?", histEntry, pdfSource: src };
+  return {
+    name: profile.fullName || old["Profile Name"] || "?",
+    histEntry, pdfSource: src,
+    expCount: (profile.experiences || []).length,
+    eduCount: (profile.education || []).length,
+    sumLen:   (profileSummary || "").length,
+  };
 }
 
 // ─── Boucle principale du batch ───────────────────────────────────────────────
@@ -1077,7 +1086,7 @@ async function runBatch(config) {
         const r = await enrichOneRecord(record, config);
         batchState.ok++;
         const changes = r.histEntry ? r.histEntry.split("\n").filter(l => l.startsWith("•")).length : 0;
-        batchLog(`(${i + 1}/${queue.length}) ✅ ${r.name} — ${changes} champ(s) mis à jour, PDF: ${r.pdfSource || "non"}`);
+        batchLog(`(${i + 1}/${queue.length}) ✅ ${r.name} — ${changes} chp, PDF: ${r.pdfSource || "non"} | scrape: ${r.expCount} exp, ${r.eduCount} formation(s), résumé ${r.sumLen}c`);
       } catch (e) {
         batchState.failed++;
         batchState.lastError = e.message;

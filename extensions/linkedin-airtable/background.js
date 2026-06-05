@@ -800,12 +800,13 @@ async function enrichProfileInTab(linkedinUrl) {
 
   // Envoie un message au content script avec quelques tentatives (il peut ne pas
   // être prêt juste après "complete")
-  function askScrape(retries = 5) {
+  // AMÉLIORÉ : 10 retries × 1.5s = jusqu'à 15s (LinkedIn en onglet caché peut être lent)
+  function askScrape(retries = 10) {
     return new Promise((resolve) => {
       const attempt = (n) => {
         chrome.tabs.sendMessage(tab.id, { action: "scrapeProfile" }, (resp) => {
           if (chrome.runtime.lastError || !resp) {
-            if (n > 0) return setTimeout(() => attempt(n - 1), 1000);
+            if (n > 0) return setTimeout(() => attempt(n - 1), 1500);
             return resolve(null);
           }
           resolve(resp.success ? resp.data : null);
@@ -816,8 +817,8 @@ async function enrichProfileInTab(linkedinUrl) {
   }
 
   try {
-    await waitTabComplete();
-    await new Promise(r => setTimeout(r, 3000)); // laisse React peindre la page
+    await waitTabComplete(25000); // augmente timeout onglet à 25s
+    await new Promise(r => setTimeout(r, 4000)); // augmente pause React à 4s
 
     // 1. Scrape principal (nom, poste, entreprise, localisation, photo, résumé)
     const profile = await askScrape();

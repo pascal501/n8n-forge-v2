@@ -172,3 +172,10 @@ Mod `background.js` ligne 639 : pass `website` + `connectedDate` au `generatePro
 - Améliore About : maintenant développé et complet via le clic « Plus »
 
 Résultat : PDF fallback inclut maintenant le profil **complet** — tout ce qu'on voit sur LinkedIn en ouvrant la page et les onglets Expérience/Formation.
+
+**FIX TIMEOUTS** (2026-06-05, suite IV) : premiers profils du batch (Fabien, Hamza) échouaient avec « content script muet » ou PDF vide. Root cause : LinkedIn en onglet caché (batch mode) met plus de temps à charger/rendre. Augmenté :
+- `waitTabComplete()` : 20s → 25s (timeout onglet chargement)
+- Pause React après "complete" : 3s → 4s
+- `askScrape()` retries : 5 → 10 retries, délai 1s → 1.5s (total jusqu'à 15s)
+
+Résultat : content script a maintenant jusqu'à 15s pour répondre au message de scrape (vs 5s avant). Élimine « muet » et permet à LinkedIn de bien rendre avant scrape.

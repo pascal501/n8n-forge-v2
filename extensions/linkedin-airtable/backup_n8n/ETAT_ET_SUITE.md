@@ -148,3 +148,5 @@ Récupère par fiche : Prénom/Nom/Poste/Company Name/Location/Email/Téléphone
 **POUR CONTINUER le batch après cette correction** :
 1. Recharger extension (`chrome://extensions` → ↻)
 2. Bouton batch → count 200 → Démarrer. Comme 12 contacts ont déjà un PDF, ils seront sautés automatiquement. Le batch reprend aux 13e contact et continue (~204 restants).
+
+**FENÊTRE PERSISTANTE** (2026-06-05, suite) : créé `batch-monitor.html` + `batch-monitor.js` pour ouvrir une fenêtre Chrome persistante au lancement du batch (au lieu de popup non-persistante). La fenêtre reste visible pendant les ~2-3h de l'enrichissement, avec barre de progression, logs live, et bouton arrêt. Mod `popup.js` : clique « Démarrer » → `chrome.windows.create(batch-monitor.html)` + lancement du batch. Manifest : ajout permission `"windows"`.

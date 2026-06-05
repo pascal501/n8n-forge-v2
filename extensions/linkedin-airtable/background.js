@@ -633,10 +633,10 @@ async function handleSave(profile, config, tabId, classifications = {}) {
     }
   }
 
-  // Fallback : PDF généré
+  // Fallback : PDF généré (incluant coordonnées complètes)
   if (!pdfDataUrl) {
     try {
-      const txt = generateProfilePDF({ ...profile, email, phone });
+      const txt = generateProfilePDF({ ...profile, email, phone, website, connectedDate });
       pdfDataUrl = `data:application/pdf;base64,${btoa(txt)}`;
       details.pdfSource = "généré localement";
       details.pdf = true;

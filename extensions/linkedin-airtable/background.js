@@ -985,7 +985,26 @@ async function enrichOneRecord(record, config) {
   let src = pdfSource;
   if (!pdf) {
     try {
-      const txt = generateProfilePDF({ ...profile });
+      // Le PDF fallback utilise les MEILLEURES données connues : scrape frais en
+      // priorité, sinon la valeur déjà présente dans la fiche Airtable (`old`).
+      // Évite un PDF quasi vide quand le scrape de ce run est partiel.
+      const pdfProfile = {
+        fullName:      profile.fullName  || old["Profile Name"] || "",
+        firstName:     profile.firstName || old["Prénom"]       || "",
+        lastName:      profile.lastName  || old["Nom"]          || "",
+        position:      profile.position  || old["Poste"]        || "",
+        company:       profile.company   || old["Company Name"] || "",
+        location:      profile.location  || old["Location"]     || "",
+        linkedinUrl:   linkedinUrl,
+        email:         profile.email     || old["Email"]        || "",
+        phone:         cleanPhone        || old["Téléphone"]    || "",
+        website:       profile.website   || old["Site web"]     || "",
+        connectedDate: profile.connectedDate || old["Connecté le"] || "",
+        summary:       profileSummary    || old["Profile Summary"] || "",
+        experiences:   profile.experiences || [],
+        education:     profile.education   || [],
+      };
+      const txt = generateProfilePDF(pdfProfile);
       pdf = `data:application/pdf;base64,${btoa(txt)}`;
       src = "généré localement";
     } catch (e) { /* PDF facultatif */ }

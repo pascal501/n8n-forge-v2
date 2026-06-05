@@ -24,6 +24,19 @@
     await waitFor("main", 3000);
     await new Promise(r => setTimeout(r, 800));
 
+    // Force le lazy-load : LinkedIn ne rend les sections (Expérience, Formation…)
+    // que lorsqu'elles approchent du viewport. On scrolle progressivement toute la
+    // page, puis on revient en haut, pour garantir que tout le DOM est rendu.
+    try {
+      const h = () => document.body.scrollHeight;
+      for (let i = 1; i <= 6; i++) {
+        window.scrollTo(0, (h() * i) / 6);
+        await new Promise(r => setTimeout(r, 400));
+      }
+      window.scrollTo(0, 0);
+      await new Promise(r => setTimeout(r, 500));
+    } catch (e) { /* scroll best-effort */ }
+
     const p = {};
 
     // Nom (LinkedIn utilise H2, pas H1)

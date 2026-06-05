@@ -198,63 +198,62 @@
       if (anyHttps) p.photoUrl = anyHttps.src;
     }
 
-    // Résumé — LinkedIn place un ancre id="about" avant la section
-    // AMÉLIORATION : clique sur "Plus"/"Show more" pour développer le texte complet
+    // ── Sections détaillées via les ANCRES LinkedIn (#about / #experience / #education) ──
+    // Bien plus fiable que le match par titre (LinkedIn duplique le texte pour les
+    // lecteurs d'écran → "ExpérienceExpérience", ce qui cassait l'ancien match exact).
+
+    // Extrait le texte VISIBLE propre : LinkedIn met le texte affiché dans des
+    // span[aria-hidden="true"] (le reste est du texte lecteur-d'écran dupliqué).
+    function visibleText(el) {
+      if (!el) return "";
+      const spans = el.querySelectorAll('span[aria-hidden="true"]');
+      if (spans.length) {
+        return [...new Set(Array.from(spans).map(s => text(s)).filter(Boolean))].join(" — ");
+      }
+      return text(el);
+    }
+
+    // Trouve la section par son ancre id, avec fallback titre (tolérant pluriel/duplication)
+    function findSection(anchorId, titleRegex) {
+      const a = document.getElementById(anchorId);
+      if (a) { const s = a.closest("section"); if (s) return s; }
+      for (const sec of document.querySelectorAll("main section")) {
+        const h = sec.querySelector("h2, h3");
+        const ht = h ? text(h).split("\n")[0].trim() : "";
+        if (ht && titleRegex.test(ht)) return sec;
+      }
+      return null;
+    }
+
+    // Extrait les items d'une section : un par <li> FEUILLE (sans <li> imbriqué)
+    function sectionItems(sec, max) {
+      if (!sec) return [];
+      const out = [];
+      const leafLis = Array.from(sec.querySelectorAll("li")).filter(li => !li.querySelector("li"));
+      for (const li of leafLis) {
+        const line = visibleText(li).replace(/\s+/g, " ").trim().substring(0, 250);
+        if (line.length > 10 && !out.includes(line)) out.push(line);
+        if (out.length >= max) break;
+      }
+      return out;
+    }
+
+    // À propos — développe via "Plus" puis prend le texte visible
     p.summary = "";
-    const aboutAnchor = document.getElementById("about");
-    if (aboutAnchor) {
-      const sec = aboutAnchor.closest("section") || aboutAnchor.parentElement;
-      if (sec) {
-        // Cherche et clique sur le bouton "Plus"/"Show more" (plusieurs formats possibles)
-        const btns = Array.from(sec.querySelectorAll("button"));
-        const moreBtn = btns.find(btn => {
-          const txt = (btn.innerText || btn.textContent || "").trim();
-          return /plus|more|voir|expand|show/i.test(txt) && txt.length < 20;
-        });
-        if (moreBtn) {
-          try { moreBtn.click(); await new Promise(r => setTimeout(r, 800)); } catch (e) {}
-        }
-        // Scrape le contenu textuel (toujours plus fiable que les sélecteurs spécifiques)
-        const raw = text(sec).replace(/^(À propos|About)\s*/i, "").trim();
-        if (raw.length > 30) p.summary = raw; // au moins 30 chars
-      }
+    const aboutSec = findSection("about", /^(À propos|About)/i);
+    if (aboutSec) {
+      const moreBtn = Array.from(aboutSec.querySelectorAll("button")).find(btn => {
+        const t = (btn.innerText || btn.textContent || "").trim();
+        return /plus|more|voir|expand|show/i.test(t) && t.length < 20;
+      });
+      if (moreBtn) { try { moreBtn.click(); await new Promise(r => setTimeout(r, 600)); } catch (e) {} }
+      const raw = visibleText(aboutSec).replace(/^(À propos|About)\s*(—\s*)?/i, "").trim();
+      if (raw.length > 20) p.summary = raw;
     }
 
-    // Expériences (Work Experience) — scrape robuste par texte visible
-    p.experiences = [];
-    for (const sec of document.querySelectorAll("main section")) {
-      const h = sec.querySelector("h2, h3");
-      if (h && /^(Expérience|Experience)$/i.test(text(h).trim())) {
-        // Prend tout le texte de la section (plus robuste que sélecteurs complexes)
-        const fullText = text(sec).replace(/^(Expérience|Experience)\s*/i, "").trim();
-        if (fullText.length > 20) {
-          // Découpe en items (généralement séparés par les postes/dates)
-          const lines = fullText.split(/\n\n+/);
-          for (const line of lines) {
-            const item = line.trim().substring(0, 250);
-            if (item.length > 15) p.experiences.push(item);
-          }
-        }
-        break;
-      }
-    }
-
-    // Formations (Education) — scrape robuste par texte visible
-    p.education = [];
-    for (const sec of document.querySelectorAll("main section")) {
-      const h = sec.querySelector("h2, h3");
-      if (h && /^(Formation|Education)$/i.test(text(h).trim())) {
-        const fullText = text(sec).replace(/^(Formation|Education)\s*/i, "").trim();
-        if (fullText.length > 20) {
-          const lines = fullText.split(/\n\n+/);
-          for (const line of lines) {
-            const item = line.trim().substring(0, 250);
-            if (item.length > 15) p.education.push(item);
-          }
-        }
-        break;
-      }
-    }
+    // Expériences + Formations
+    p.experiences = sectionItems(findSection("experience", /^(Exp[ée]riences?|Experiences?)/i), 12);
+    p.education   = sectionItems(findSection("education",  /^(Formations?|[ÉE]ducation)/i), 10);
 
     // Email + Téléphone : gérés côté background via onglet dédié
     // (LinkedIn rend le contenu en JS, un simple fetch ne suffit pas)

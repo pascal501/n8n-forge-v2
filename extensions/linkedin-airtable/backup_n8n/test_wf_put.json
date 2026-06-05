@@ -1,0 +1,267 @@
+{
+  "name": "ZZ TEST - Preuve écriture Email+Notes (à supprimer)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c0de0003-cccc-4ddd-8eee-000000000003",
+      "name": "Trigger manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        280,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Émet l'item final {id, Email, Notes} pour le record de test (preuve d'écriture)\nconst now = new Date();\nconst d = now.toLocaleDateString('fr-FR');\nconst t = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });\nconst entry = '📅 ' + d + ' ' + t + ' — ENRICHISSEMENT APOLLO (complément)\\n• Email: vide → preuve@enrichissement-test.com (via Apollo)';\nconst prev = '📅 note initiale de test (doit être préservée)';\nconst notes = entry + '\\n\\n' + '─'.repeat(30) + '\\n\\n' + prev;\nreturn [{ json: { id: 'rec3zI6vBaFjfOJKl', Email: 'preuve@enrichissement-test.com', Notes: notes } }];\n"
+      },
+      "id": "c0de0004-dddd-4eee-8fff-000000000004",
+      "name": "Émet item test",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appiuwspImLMu7KJQ",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Contact Management",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblknsWOhLLtnTtIx",
+          "mode": "list",
+          "cachedResultName": "Contacts LinkedIn",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Profile Name",
+              "displayName": "Profile Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LinkedIn URL",
+              "displayName": "LinkedIn URL",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Confirmed as Prospect",
+              "displayName": "Confirmed as Prospect",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Confirmed as Resource",
+              "displayName": "Confirmed as Resource",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Prenom",
+              "displayName": "Prenom",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Nom",
+              "displayName": "Nom",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Entreprise",
+              "displayName": "Entreprise",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Poste",
+              "displayName": "Poste",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Telephone",
+              "displayName": "Telephone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Profile Summary",
+              "displayName": "Profile Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Site web",
+              "displayName": "Site web",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "c0de0002-bbbb-4ccc-8ddd-000000000002",
+      "name": "Update (test)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        760,
+        200
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "sbNAmcpptwiyg3eb",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Trigger manuel": {
+      "main": [
+        [
+          {
+            "node": "Émet item test",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Émet item test": {
+      "main": [
+        [
+          {
+            "node": "Update (test)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

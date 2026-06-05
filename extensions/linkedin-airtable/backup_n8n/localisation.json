@@ -1,0 +1,912 @@
+{
+  "updatedAt": "2026-06-01T11:53:29.858Z",
+  "createdAt": "2026-06-01T10:22:53.194Z",
+  "id": "5t3YcQoyAU3MhkoT",
+  "name": "Shodo - Enrichissement Localisation (SIRENE + Apollo) - COMPLET",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "WORKFLOW A : ENRICHIR LOCALISATION\n\n1) Airtable Search : contacts sans Location\n2) SIRENE API : adresse entreprise (code postal)\n3) Apollo API : fallback si SIRENE echoue\n4) Code JS : extrait region/departement\n5) Airtable Update : ecrit Location + tous champs\n\nCadence : 02h00 chaque nuit\n",
+        "height": 300,
+        "width": 400
+      },
+      "id": "1a522b3d-cbb4-4d2b-86e0-228649f3cd3b",
+      "name": "Setup A",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1968,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "6553550f-4609-460c-ba27-78320eacf75a",
+      "name": "Chaque nuit 02h00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        2480,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appiuwspImLMu7KJQ",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Contact Management",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblknsWOhLLtnTtIx",
+          "mode": "list",
+          "cachedResultName": "Contacts LinkedIn",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+        },
+        "options": {}
+      },
+      "id": "4f85daae-3d1b-4a70-aa23-0df19e248318",
+      "name": "Airtable : Contacts (sans Location)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2720,
+        608
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "sbNAmcpptwiyg3eb",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filtre contacts sans Location\nconst items = $input.all();\nconst out = [];\n\nfor (let i = 0; i !== items.length; i++) {\n  const f = items[i].fields;\n  // Skip si Location deja rempli\n  if (f.Location && f.Location.trim().length > 0) continue;\n  \n  out.push({ json: {\n    record_id: items[i].id,\n    nom: f.Nom || '',\n    prenom: f.Prenom || '',\n    entreprise: f.Entreprise || ''\n  }});\n}\nreturn out;\n"
+      },
+      "id": "92b5c70e-8076-41ed-aed2-8a49071f3a35",
+      "name": "Filtre sans Location",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2976,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://recherche-entreprises.api.gouv.fr/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{$json.entreprise}}"
+            },
+            {
+              "name": "per_page",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c753d24f-581d-4aec-ae40-99b4ecf7a780",
+      "name": "HTTP : SIRENE (adresse)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        3232,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.apollo.io/v1/people/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "api_key",
+              "value": "k3cOQ-liHFRMImStCcAdVw"
+            },
+            {
+              "name": "first_name",
+              "value": "={{$json.prenom}}"
+            },
+            {
+              "name": "last_name",
+              "value": "={{$json.nom}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9c2083d1-13ba-4de4-aa93-e5f883232b47",
+      "name": "HTTP : Apollo (fallback)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        3472,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrait localisation de SIRENE + fallback Apollo\nconst items = $input.all();\nconst out = [];\n\nconst depts_fr = {\n  '35': 'Ille-et-Vilaine', '56': 'Morbihan', '22': 'Cotes-d-Armor', '29': 'Finistere',\n  '44': 'Loire-Atlantique', '49': 'Maine-et-Loire', '85': 'Vendee', '72': 'Sarthe'\n};\n\nconst regions_fr = {\n  '35': 'Bretagne', '56': 'Bretagne', '22': 'Bretagne', '29': 'Bretagne',\n  '44': 'Pays de la Loire', '49': 'Pays de la Loire', '85': 'Pays de la Loire', '72': 'Pays de la Loire'\n};\n\nfor (let i = 0; i !== items.length; i++) {\n  const item = items[i];\n  let location = '';\n  \n  // Essai SIRENE d'abord\n  if (item.sirene_response && item.sirene_response.results && item.sirene_response.results.length > 0) {\n    const e = item.sirene_response.results[0];\n    if (e.siege && e.siege.code_postal) {\n      const cp = e.siege.code_postal.substring(0, 2);\n      location = regions_fr[cp] || 'France';\n    } else if (e.siege && e.siege.libelle_commune) {\n      location = e.siege.libelle_commune;\n    }\n  }\n  \n  // Fallback Apollo si pas SIRENE\n  if (!location && item.apollo_response && item.apollo_response.people && item.apollo_response.people.length > 0) {\n    const p = item.apollo_response.people[0];\n    if (p.city) location = p.city;\n    else if (p.state) location = p.state;\n    else if (p.country) location = p.country;\n  }\n  \n  if (location) {\n    out.push({ json: {\n      record_id: item.record_id,\n      Location: location\n    }});\n  }\n}\nreturn out;\n"
+      },
+      "id": "76ec9514-bb99-491a-8e83-49b648953e4c",
+      "name": "Code : Extrait location",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3728,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appiuwspImLMu7KJQ",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Contact Management",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblknsWOhLLtnTtIx",
+          "mode": "list",
+          "cachedResultName": "Contacts LinkedIn",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Profile Name",
+              "displayName": "Profile Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LinkedIn URL",
+              "displayName": "LinkedIn URL",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Confirmed as Prospect",
+              "displayName": "Confirmed as Prospect",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Confirmed as Resource",
+              "displayName": "Confirmed as Resource",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Prenom",
+              "displayName": "Prenom",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Nom",
+              "displayName": "Nom",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Entreprise",
+              "displayName": "Entreprise",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Poste",
+              "displayName": "Poste",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Telephone",
+              "displayName": "Telephone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Profile Summary",
+              "displayName": "Profile Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Site web",
+              "displayName": "Site web",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "d72d8987-d765-4caf-b2e8-034d2ba26ef4",
+      "name": "Airtable : Update Location",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        3968,
+        608
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "sbNAmcpptwiyg3eb",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chaque nuit 02h00": {
+      "main": [
+        [
+          {
+            "node": "Airtable : Contacts (sans Location)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable : Contacts (sans Location)": {
+      "main": [
+        [
+          {
+            "node": "Filtre sans Location",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtre sans Location": {
+      "main": [
+        [
+          {
+            "node": "HTTP : SIRENE (adresse)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP : SIRENE (adresse)": {
+      "main": [
+        [
+          {
+            "node": "HTTP : Apollo (fallback)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP : Apollo (fallback)": {
+      "main": [
+        [
+          {
+            "node": "Code : Extrait location",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code : Extrait location": {
+      "main": [
+        [
+          {
+            "node": "Airtable : Update Location",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Chaque nuit 02h00": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "296ff22b-0e55-412a-9f0d-333f2e095e21",
+  "activeVersionId": "296ff22b-0e55-412a-9f0d-333f2e095e21",
+  "versionCounter": 30,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-06-01T10:22:53.201Z",
+      "createdAt": "2026-06-01T10:22:53.201Z",
+      "role": "workflow:owner",
+      "workflowId": "5t3YcQoyAU3MhkoT",
+      "projectId": "8pDHrPYWUh4XUovi",
+      "project": {
+        "updatedAt": "2026-04-10T19:26:19.327Z",
+        "createdAt": "2026-04-10T18:59:46.387Z",
+        "id": "8pDHrPYWUh4XUovi",
+        "name": "Fontaine Pascal <pascal@dinaou.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "7712e5c5-53a1-4125-b66d-a5cb65f6911b"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-06-01T11:56:07Z",
+    "createdAt": "2026-06-01T11:53:29.86Z",
+    "versionId": "296ff22b-0e55-412a-9f0d-333f2e095e21",
+    "workflowId": "5t3YcQoyAU3MhkoT",
+    "nodes": [
+      {
+        "parameters": {
+          "content": "WORKFLOW A : ENRICHIR LOCALISATION\n\n1) Airtable Search : contacts sans Location\n2) SIRENE API : adresse entreprise (code postal)\n3) Apollo API : fallback si SIRENE echoue\n4) Code JS : extrait region/departement\n5) Airtable Update : ecrit Location + tous champs\n\nCadence : 02h00 chaque nuit\n",
+          "height": 300,
+          "width": 400
+        },
+        "id": "1a522b3d-cbb4-4d2b-86e0-228649f3cd3b",
+        "name": "Setup A",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          1968,
+          448
+        ]
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 2 * * *"
+              }
+            ]
+          }
+        },
+        "id": "6553550f-4609-460c-ba27-78320eacf75a",
+        "name": "Chaque nuit 02h00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          2480,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "search",
+          "base": {
+            "__rl": true,
+            "value": "appiuwspImLMu7KJQ",
+            "mode": "list",
+            "cachedResultName": "LinkedIn Contact Management",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+          },
+          "table": {
+            "__rl": true,
+            "value": "tblknsWOhLLtnTtIx",
+            "mode": "list",
+            "cachedResultName": "Contacts LinkedIn",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+          },
+          "options": {}
+        },
+        "id": "4f85daae-3d1b-4a70-aa23-0df19e248318",
+        "name": "Airtable : Contacts (sans Location)",
+        "type": "n8n-nodes-base.airtable",
+        "typeVersion": 2.1,
+        "position": [
+          2720,
+          608
+        ],
+        "credentials": {
+          "airtableTokenApi": {
+            "id": "sbNAmcpptwiyg3eb",
+            "name": "Airtable Personal Access Token account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Filtre contacts sans Location\nconst items = $input.all();\nconst out = [];\n\nfor (let i = 0; i !== items.length; i++) {\n  const f = items[i].fields;\n  // Skip si Location deja rempli\n  if (f.Location && f.Location.trim().length > 0) continue;\n  \n  out.push({ json: {\n    record_id: items[i].id,\n    nom: f.Nom || '',\n    prenom: f.Prenom || '',\n    entreprise: f.Entreprise || ''\n  }});\n}\nreturn out;\n"
+        },
+        "id": "92b5c70e-8076-41ed-aed2-8a49071f3a35",
+        "name": "Filtre sans Location",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2976,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://recherche-entreprises.api.gouv.fr/search",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "q",
+                "value": "={{$json.entreprise}}"
+              },
+              {
+                "name": "per_page",
+                "value": "1"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "c753d24f-581d-4aec-ae40-99b4ecf7a780",
+        "name": "HTTP : SIRENE (adresse)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 3,
+        "position": [
+          3232,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://api.apollo.io/v1/people/search",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "api_key",
+                "value": "k3cOQ-liHFRMImStCcAdVw"
+              },
+              {
+                "name": "first_name",
+                "value": "={{$json.prenom}}"
+              },
+              {
+                "name": "last_name",
+                "value": "={{$json.nom}}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "9c2083d1-13ba-4de4-aa93-e5f883232b47",
+        "name": "HTTP : Apollo (fallback)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 3,
+        "position": [
+          3472,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Extrait localisation de SIRENE + fallback Apollo\nconst items = $input.all();\nconst out = [];\n\nconst depts_fr = {\n  '35': 'Ille-et-Vilaine', '56': 'Morbihan', '22': 'Cotes-d-Armor', '29': 'Finistere',\n  '44': 'Loire-Atlantique', '49': 'Maine-et-Loire', '85': 'Vendee', '72': 'Sarthe'\n};\n\nconst regions_fr = {\n  '35': 'Bretagne', '56': 'Bretagne', '22': 'Bretagne', '29': 'Bretagne',\n  '44': 'Pays de la Loire', '49': 'Pays de la Loire', '85': 'Pays de la Loire', '72': 'Pays de la Loire'\n};\n\nfor (let i = 0; i !== items.length; i++) {\n  const item = items[i];\n  let location = '';\n  \n  // Essai SIRENE d'abord\n  if (item.sirene_response && item.sirene_response.results && item.sirene_response.results.length > 0) {\n    const e = item.sirene_response.results[0];\n    if (e.siege && e.siege.code_postal) {\n      const cp = e.siege.code_postal.substring(0, 2);\n      location = regions_fr[cp] || 'France';\n    } else if (e.siege && e.siege.libelle_commune) {\n      location = e.siege.libelle_commune;\n    }\n  }\n  \n  // Fallback Apollo si pas SIRENE\n  if (!location && item.apollo_response && item.apollo_response.people && item.apollo_response.people.length > 0) {\n    const p = item.apollo_response.people[0];\n    if (p.city) location = p.city;\n    else if (p.state) location = p.state;\n    else if (p.country) location = p.country;\n  }\n  \n  if (location) {\n    out.push({ json: {\n      record_id: item.record_id,\n      Location: location\n    }});\n  }\n}\nreturn out;\n"
+        },
+        "id": "76ec9514-bb99-491a-8e83-49b648953e4c",
+        "name": "Code : Extrait location",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3728,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "base": {
+            "__rl": true,
+            "value": "appiuwspImLMu7KJQ",
+            "mode": "list",
+            "cachedResultName": "LinkedIn Contact Management",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+          },
+          "table": {
+            "__rl": true,
+            "value": "tblknsWOhLLtnTtIx",
+            "mode": "list",
+            "cachedResultName": "Contacts LinkedIn",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {},
+            "matchingColumns": [
+              "id"
+            ],
+            "schema": [
+              {
+                "id": "id",
+                "displayName": "id",
+                "required": false,
+                "defaultMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": true,
+                "removed": false
+              },
+              {
+                "id": "Profile Name",
+                "displayName": "Profile Name",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "LinkedIn URL",
+                "displayName": "LinkedIn URL",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Confirmed as Prospect",
+                "displayName": "Confirmed as Prospect",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "boolean",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Confirmed as Resource",
+                "displayName": "Confirmed as Resource",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "boolean",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Prenom",
+                "displayName": "Prenom",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Nom",
+                "displayName": "Nom",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Entreprise",
+                "displayName": "Entreprise",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Poste",
+                "displayName": "Poste",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Email",
+                "displayName": "Email",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Telephone",
+                "displayName": "Telephone",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Location",
+                "displayName": "Location",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Profile Summary",
+                "displayName": "Profile Summary",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Site web",
+                "displayName": "Site web",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {
+            "typecast": true
+          }
+        },
+        "id": "d72d8987-d765-4caf-b2e8-034d2ba26ef4",
+        "name": "Airtable : Update Location",
+        "type": "n8n-nodes-base.airtable",
+        "typeVersion": 2.1,
+        "position": [
+          3968,
+          608
+        ],
+        "credentials": {
+          "airtableTokenApi": {
+            "id": "sbNAmcpptwiyg3eb",
+            "name": "Airtable Personal Access Token account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Chaque nuit 02h00": {
+        "main": [
+          [
+            {
+              "node": "Airtable : Contacts (sans Location)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Airtable : Contacts (sans Location)": {
+        "main": [
+          [
+            {
+              "node": "Filtre sans Location",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filtre sans Location": {
+        "main": [
+          [
+            {
+              "node": "HTTP : SIRENE (adresse)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP : SIRENE (adresse)": {
+        "main": [
+          [
+            {
+              "node": "HTTP : Apollo (fallback)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP : Apollo (fallback)": {
+        "main": [
+          [
+            {
+              "node": "Code : Extrait location",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Code : Extrait location": {
+        "main": [
+          [
+            {
+              "node": "Airtable : Update Location",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Fontaine Pascal",
+    "name": "Version 296ff22b",
+    "description": "",
+    "autosaved": true,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-06-01T11:56:07.149Z",
+        "id": 9,
+        "workflowId": "5t3YcQoyAU3MhkoT",
+        "versionId": "296ff22b-0e55-412a-9f0d-333f2e095e21",
+        "event": "activated",
+        "userId": "7712e5c5-53a1-4125-b66d-a5cb65f6911b"
+      }
+    ]
+  }
+}

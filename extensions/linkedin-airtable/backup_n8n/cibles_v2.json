@@ -1,0 +1,1193 @@
+{
+  "updatedAt": "2026-05-31T08:36:56.216Z",
+  "createdAt": "2026-05-31T08:35:33.266Z",
+  "id": "XcKZyOGhVfqEtd5O",
+  "name": "Shodo - Moteur de cibles (Adzuna vers Comptes Cibles)",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "SETUP - Moteur de cibles Shodo (Adzuna)\n\n1) Cle Adzuna : NE PAS la coller dans le workflow.\n   Sur la VM, definir 2 variables d'environnement pour n8n :\n     ADZUNA_APP_ID=...   ADZUNA_APP_KEY=...\n   puis redemarrer n8n.\n\n2) Noeud Airtable : selectionner ta connexion Airtable.\n   Base = LinkedIn Contact Management, table = Comptes Cibles.\n   Operation = Create or Update (upsert), colonne de match = Entreprise.\n\n3) Clients Shodo a exclure : completer EXCLUSION_SHODO dans le noeud Code.\n\n4) Cadence : tourne chaque nuit 02:00 et alimente Comptes Cibles.\n\n5) Tri ESN/client final via le code NAF (API Recherche entreprises, gratuite).\n\nNB : les noms de champs ('Departement', 'Assigne a', etc.) doivent\ncorrespondre EXACTEMENT a ceux de ta table Airtable. Ajuste si besoin\ndans le mapping du noeud Airtable apres import.",
+        "height": 360,
+        "width": 420
+      },
+      "id": "460473f0-7a10-4157-a443-116add6e581f",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        528,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "41b4c8d0-327d-4640-9bbb-6420d414fbd7",
+      "name": "Chaque nuit 02h00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        1056,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Moteur de cibles Shodo - Adzuna vers Airtable Comptes Cibles\n// Cle Adzuna via variables d'environnement (ADZUNA_APP_ID / ADZUNA_APP_KEY)\n\nconst APP_ID  = $env.ADZUNA_APP_ID;\nconst APP_KEY = $env.ADZUNA_APP_KEY;\n\nconst bassins = [\n  { where: 'Rennes', distance: 80, bassin: 'Grande Region Rennes', assigne: 'Laurene' },\n  { where: 'Nantes', distance: 80, bassin: 'Grande Region Nantes', assigne: 'Adrien'  }\n];\n\nconst PAGES = 3;\nconst MAX_DAYS_OLD = 2;\nconst DEPTS_OK = ['35','56','22','29','44','49','85'];\nconst NAF_ESN = ['62.01Z','62.02A','62.02B','62.03Z','62.09Z','70.22Z'];\nconst NAF_RECRUT = ['78.10Z','78.20Z','78.30Z'];\n\n// Clients ACTUELS de Shodo a exclure (a completer)\nconst EXCLUSION_SHODO = [];\n\nfunction stacks(title){\n  const t = (title || '').toLowerCase();\n  const out = [];\n  if (/java/.test(t)) out.push('Java');\n  if (/\\.net|c#|dotnet/.test(t)) out.push('.NET');\n  if (/python/.test(t)) out.push('Python');\n  if (/\\bdata\\b|big data/.test(t)) out.push('Data');\n  if (/\\bia\\b|machine learning|\\bml\\b|data scien|llm/.test(t)) out.push('IA / ML');\n  if (/devops|sre|kubernetes|docker/.test(t)) out.push('DevOps');\n  if (/architect/.test(t)) out.push('Architecture');\n  if (/chef de projet|product owner|scrum master/.test(t)) out.push('Chef de projet');\n  if (/cloud|aws|azure|gcp/.test(t)) out.push('Cloud');\n  if (/mobile|android|ios|flutter/.test(t)) out.push('Mobile');\n  if (/front|react|angular|vue/.test(t)) out.push('Front');\n  return out.length ? out : ['Autre'];\n}\n\nconst http = this.helpers.httpRequest;\nconst out = [];\n\nfor (const b of bassins) {\n  for (let i = 0; i !== PAGES; i++) {\n    const page = i + 1;\n    let res;\n    try {\n      res = await http({\n        method: 'GET',\n        url: 'https://api.adzuna.com/v1/api/jobs/fr/search/' + page,\n        qs: {\n          app_id: APP_ID,\n          app_key: APP_KEY,\n          where: b.where,\n          distance: b.distance,\n          category: 'it-jobs',\n          max_days_old: MAX_DAYS_OLD,\n          results_per_page: 50,\n          sort_by: 'date'\n        },\n        json: true\n      });\n    } catch (e) { continue; }\n\n    for (const job of (res.results || [])) {\n      const company = ((job.company && job.company.display_name) || '').trim();\n      if (!company) continue;\n\n      let skip = false;\n      for (const c of EXCLUSION_SHODO) {\n        if (company.toLowerCase().indexOf(c.toLowerCase()) !== -1) skip = true;\n      }\n      if (skip) continue;\n\n      let siren = '';\n      let naf = '';\n      let ville = (job.location && job.location.display_name) || '';\n      let cp = '';\n      try {\n        const ent = await http({\n          method: 'GET',\n          url: 'https://recherche-entreprises.api.gouv.fr/search',\n          qs: { q: company, per_page: 1 },\n          json: true\n        });\n        const e = ent.results && ent.results[0];\n        if (e) {\n          siren = e.siren || '';\n          naf = (e.siege && e.siege.activite_principale) || e.activite_principale || '';\n          ville = (e.siege && e.siege.libelle_commune) || ville;\n          cp = (e.siege && e.siege.code_postal) || '';\n        }\n      } catch (e) {}\n\n      let type = 'Client final';\n      if (NAF_ESN.indexOf(naf) !== -1) type = 'ESN';\n      else if (NAF_RECRUT.indexOf(naf) !== -1) type = 'Cabinet recrutement';\n      else if (!naf) type = 'Inconnu';\n\n      if (type === 'ESN' || type === 'Cabinet recrutement') continue;\n\n      let dept = cp ? cp.substring(0,2) : '';\n      if (DEPTS_OK.indexOf(dept) === -1) dept = 'Autre';\n\n      const dateSignal = (job.created || '').substring(0,10);\n\n      out.push({ json: {\n        'Entreprise': company,\n        'SIREN / SIRET': siren,\n        'Code NAF': naf,\n        'Type entreprise': type,\n        'Ville': ville,\n        'Departement': dept,\n        'Bassin': b.bassin,\n        'Assigne a': b.assigne,\n        'Signal achat': job.title + ' - ' + b.where + ' (Adzuna, ' + dateSignal + ')',\n        'Intitule poste': job.title || '',\n        'Profils Stack': stacks(job.title),\n        'Date du signal': dateSignal,\n        'Source': 'Adzuna',\n        'Lien offre': job.redirect_url || ''\n      }});\n    }\n  }\n}\nreturn out;\n"
+      },
+      "id": "125f1c8a-7313-45b0-b928-cad5d6c29540",
+      "name": "Adzuna enrichissement classement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "appiuwspImLMu7KJQ",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Contact Management",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbl2CiHhd4dLQRpHW",
+          "mode": "list",
+          "cachedResultName": "Comptes Cibles",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tbl2CiHhd4dLQRpHW"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "Suivi direct": false
+          },
+          "matchingColumns": [
+            "Entreprise"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Entreprise",
+              "displayName": "Entreprise",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "SIREN / SIRET",
+              "displayName": "SIREN / SIRET",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Code NAF",
+              "displayName": "Code NAF",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Type entreprise",
+              "displayName": "Type entreprise",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Client final",
+                  "value": "Client final"
+                },
+                {
+                  "name": "ESN",
+                  "value": "ESN"
+                },
+                {
+                  "name": "Cabinet recrutement",
+                  "value": "Cabinet recrutement"
+                },
+                {
+                  "name": "Inconnu",
+                  "value": "Inconnu"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Ville",
+              "displayName": "Ville",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Département",
+              "displayName": "Département",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "35",
+                  "value": "35"
+                },
+                {
+                  "name": "56",
+                  "value": "56"
+                },
+                {
+                  "name": "22",
+                  "value": "22"
+                },
+                {
+                  "name": "29",
+                  "value": "29"
+                },
+                {
+                  "name": "44",
+                  "value": "44"
+                },
+                {
+                  "name": "49",
+                  "value": "49"
+                },
+                {
+                  "name": "85",
+                  "value": "85"
+                },
+                {
+                  "name": "Autre",
+                  "value": "Autre"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Bassin",
+              "displayName": "Bassin",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Grande Région Rennes",
+                  "value": "Grande Région Rennes"
+                },
+                {
+                  "name": "Grande Région Nantes",
+                  "value": "Grande Région Nantes"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Assigné à",
+              "displayName": "Assigné à",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Laurène",
+                  "value": "Laurène"
+                },
+                {
+                  "name": "Adrien",
+                  "value": "Adrien"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Signal d'achat",
+              "displayName": "Signal d'achat",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Intitulé(s) de poste",
+              "displayName": "Intitulé(s) de poste",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Profils / Stack",
+              "displayName": "Profils / Stack",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "options": [
+                {
+                  "name": "Java",
+                  "value": "Java"
+                },
+                {
+                  "name": ".NET",
+                  "value": ".NET"
+                },
+                {
+                  "name": "Python",
+                  "value": "Python"
+                },
+                {
+                  "name": "Data",
+                  "value": "Data"
+                },
+                {
+                  "name": "IA / ML",
+                  "value": "IA / ML"
+                },
+                {
+                  "name": "DevOps",
+                  "value": "DevOps"
+                },
+                {
+                  "name": "Architecture",
+                  "value": "Architecture"
+                },
+                {
+                  "name": "Chef de projet",
+                  "value": "Chef de projet"
+                },
+                {
+                  "name": "Cloud",
+                  "value": "Cloud"
+                },
+                {
+                  "name": "Mobile",
+                  "value": "Mobile"
+                },
+                {
+                  "name": "Front",
+                  "value": "Front"
+                },
+                {
+                  "name": "Autre",
+                  "value": "Autre"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Date du signal",
+              "displayName": "Date du signal",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Adzuna",
+                  "value": "Adzuna"
+                },
+                {
+                  "name": "Page emploi directe",
+                  "value": "Page emploi directe"
+                },
+                {
+                  "name": "Indeed",
+                  "value": "Indeed"
+                },
+                {
+                  "name": "LinkedIn",
+                  "value": "LinkedIn"
+                },
+                {
+                  "name": "Autre",
+                  "value": "Autre"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Lien offre",
+              "displayName": "Lien offre",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Page LinkedIn entreprise",
+              "displayName": "Page LinkedIn entreprise",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Site emploi",
+              "displayName": "Site emploi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Suivi direct",
+              "displayName": "Suivi direct",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Statut prospection",
+              "displayName": "Statut prospection",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "🆕 Nouveau",
+                  "value": "🆕 Nouveau"
+                },
+                {
+                  "name": "🔍 À qualifier",
+                  "value": "🔍 À qualifier"
+                },
+                {
+                  "name": "📞 À contacter",
+                  "value": "📞 À contacter"
+                },
+                {
+                  "name": "🤝 RDV pris",
+                  "value": "🤝 RDV pris"
+                },
+                {
+                  "name": "❄️ En veille",
+                  "value": "❄️ En veille"
+                },
+                {
+                  "name": "🚫 Exclu (client Shodo)",
+                  "value": "🚫 Exclu (client Shodo)"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "98e2d483-a1e7-43b2-9460-b2f503b508da",
+      "name": "Airtable Comptes Cibles upsert",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1616,
+        -96
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "sbNAmcpptwiyg3eb",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enrichit les cibles créées/mises à jour avec leur page LinkedIn via Gemini\nconst items = $input.all();\nconst http = this.helpers.httpRequest;\nconst GKEY = $env.GEMINI_API_KEY;\nconst cache = new Map();\nconst out = [];\n\nconst clean = n => (n || '').replace(/\\s*\\([^)]*\\)\\s*/g, ' ').replace(/—.*$/, '').replace(/\\s+/g, ' ').trim();\n\nfor (const it of items) {\n  const f = it.json;\n  const id = f.id;\n  const company = (f.Entreprise || '').toString().trim();\n  if (!company || !id) continue;\n\n  const c = clean(company);\n  let url = '';\n\n  if (cache.has(c)) {\n    url = cache.get(c);\n  } else {\n    try {\n      if (GKEY) {\n        const prompt = \"Quelle est l'URL exacte de la page LinkedIn officielle de l'entreprise/organisation « \" + c +\n          \" » en France ? Réponds UNIQUEMENT par l'URL au format https://www.linkedin.com/company/... \" +\n          \"Si tu n'es pas certain à 100% que c'est la bonne organisation, réponds exactement: AUCUNE. Aucun autre texte.\";\n        const r = await http({\n          method: 'POST',\n          url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(GKEY),\n          body: { contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0 } },\n          json: true,\n        });\n        const parts = (r && r.candidates && r.candidates[0] && r.candidates[0].content && r.candidates[0].content.parts) || [];\n        const txt = parts.map(p => p.text || '').join(' ');\n        const m = txt.match(/https?:\\/\\/[a-z.]*linkedin\\.com\\/company\\/[^\\s)\"']+/i);\n        if (m) url = m[0].replace(/[).,]+$/, '').replace(/\\/$/, '');\n      }\n    } catch (e) { url = ''; }\n    cache.set(c, url);\n  }\n\n  // Retourne TOUTES les cibles (même sans URL) pour l'update Airtable\n  out.push({ json: { id: id, Entreprise: company, 'Page LinkedIn entreprise': url } });\n}\nreturn out;\n"
+      },
+      "id": "li000005-eeee-4fff-9000-000000000005",
+      "name": "Gemini : enrichissement LinkedIn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appiuwspImLMu7KJQ",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Contact Management",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbl2CiHhd4dLQRpHW",
+          "mode": "list",
+          "cachedResultName": "Comptes Cibles",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tbl2CiHhd4dLQRpHW"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Page LinkedIn entreprise",
+              "displayName": "Page LinkedIn entreprise",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "li000006-ffff-5000-9111-000000000006",
+      "name": "Airtable : Update LinkedIn",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2224,
+        -96
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "sbNAmcpptwiyg3eb",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chaque nuit 02h00": {
+      "main": [
+        [
+          {
+            "node": "Adzuna enrichissement classement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adzuna enrichissement classement": {
+      "main": [
+        [
+          {
+            "node": "Airtable Comptes Cibles upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable Comptes Cibles upsert": {
+      "main": [
+        [
+          {
+            "node": "Gemini : enrichissement LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini : enrichissement LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Airtable : Update LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Chaque nuit 02h00": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "9a44779e-ec55-4d17-9956-58eacbbcdc21",
+  "activeVersionId": "9a44779e-ec55-4d17-9956-58eacbbcdc21",
+  "versionCounter": 7,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-05-31T08:35:33.278Z",
+      "createdAt": "2026-05-31T08:35:33.278Z",
+      "role": "workflow:owner",
+      "workflowId": "XcKZyOGhVfqEtd5O",
+      "projectId": "8pDHrPYWUh4XUovi",
+      "project": {
+        "updatedAt": "2026-04-10T19:26:19.327Z",
+        "createdAt": "2026-04-10T18:59:46.387Z",
+        "id": "8pDHrPYWUh4XUovi",
+        "name": "Fontaine Pascal <pascal@dinaou.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "7712e5c5-53a1-4125-b66d-a5cb65f6911b"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-06-01T11:56:54Z",
+    "createdAt": "2026-05-31T08:36:56.219Z",
+    "versionId": "9a44779e-ec55-4d17-9956-58eacbbcdc21",
+    "workflowId": "XcKZyOGhVfqEtd5O",
+    "nodes": [
+      {
+        "parameters": {
+          "content": "SETUP - Moteur de cibles Shodo (Adzuna)\n\n1) Cle Adzuna : NE PAS la coller dans le workflow.\n   Sur la VM, definir 2 variables d'environnement pour n8n :\n     ADZUNA_APP_ID=...   ADZUNA_APP_KEY=...\n   puis redemarrer n8n.\n\n2) Noeud Airtable : selectionner ta connexion Airtable.\n   Base = LinkedIn Contact Management, table = Comptes Cibles.\n   Operation = Create or Update (upsert), colonne de match = Entreprise.\n\n3) Clients Shodo a exclure : completer EXCLUSION_SHODO dans le noeud Code.\n\n4) Cadence : tourne chaque nuit 02:00 et alimente Comptes Cibles.\n\n5) Tri ESN/client final via le code NAF (API Recherche entreprises, gratuite).\n\nNB : les noms de champs ('Departement', 'Assigne a', etc.) doivent\ncorrespondre EXACTEMENT a ceux de ta table Airtable. Ajuste si besoin\ndans le mapping du noeud Airtable apres import.",
+          "height": 360,
+          "width": 420
+        },
+        "id": "460473f0-7a10-4157-a443-116add6e581f",
+        "name": "Setup",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          528,
+          -256
+        ]
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 2 * * *"
+              }
+            ]
+          }
+        },
+        "id": "41b4c8d0-327d-4640-9bbb-6420d414fbd7",
+        "name": "Chaque nuit 02h00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          1056,
+          -96
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Moteur de cibles Shodo - Adzuna vers Airtable Comptes Cibles\n// Cle Adzuna via variables d'environnement (ADZUNA_APP_ID / ADZUNA_APP_KEY)\n\nconst APP_ID  = $env.ADZUNA_APP_ID;\nconst APP_KEY = $env.ADZUNA_APP_KEY;\n\nconst bassins = [\n  { where: 'Rennes', distance: 80, bassin: 'Grande Region Rennes', assigne: 'Laurene' },\n  { where: 'Nantes', distance: 80, bassin: 'Grande Region Nantes', assigne: 'Adrien'  }\n];\n\nconst PAGES = 3;\nconst MAX_DAYS_OLD = 2;\nconst DEPTS_OK = ['35','56','22','29','44','49','85'];\nconst NAF_ESN = ['62.01Z','62.02A','62.02B','62.03Z','62.09Z','70.22Z'];\nconst NAF_RECRUT = ['78.10Z','78.20Z','78.30Z'];\n\n// Clients ACTUELS de Shodo a exclure (a completer)\nconst EXCLUSION_SHODO = [];\n\nfunction stacks(title){\n  const t = (title || '').toLowerCase();\n  const out = [];\n  if (/java/.test(t)) out.push('Java');\n  if (/\\.net|c#|dotnet/.test(t)) out.push('.NET');\n  if (/python/.test(t)) out.push('Python');\n  if (/\\bdata\\b|big data/.test(t)) out.push('Data');\n  if (/\\bia\\b|machine learning|\\bml\\b|data scien|llm/.test(t)) out.push('IA / ML');\n  if (/devops|sre|kubernetes|docker/.test(t)) out.push('DevOps');\n  if (/architect/.test(t)) out.push('Architecture');\n  if (/chef de projet|product owner|scrum master/.test(t)) out.push('Chef de projet');\n  if (/cloud|aws|azure|gcp/.test(t)) out.push('Cloud');\n  if (/mobile|android|ios|flutter/.test(t)) out.push('Mobile');\n  if (/front|react|angular|vue/.test(t)) out.push('Front');\n  return out.length ? out : ['Autre'];\n}\n\nconst http = this.helpers.httpRequest;\nconst out = [];\n\nfor (const b of bassins) {\n  for (let i = 0; i !== PAGES; i++) {\n    const page = i + 1;\n    let res;\n    try {\n      res = await http({\n        method: 'GET',\n        url: 'https://api.adzuna.com/v1/api/jobs/fr/search/' + page,\n        qs: {\n          app_id: APP_ID,\n          app_key: APP_KEY,\n          where: b.where,\n          distance: b.distance,\n          category: 'it-jobs',\n          max_days_old: MAX_DAYS_OLD,\n          results_per_page: 50,\n          sort_by: 'date'\n        },\n        json: true\n      });\n    } catch (e) { continue; }\n\n    for (const job of (res.results || [])) {\n      const company = ((job.company && job.company.display_name) || '').trim();\n      if (!company) continue;\n\n      let skip = false;\n      for (const c of EXCLUSION_SHODO) {\n        if (company.toLowerCase().indexOf(c.toLowerCase()) !== -1) skip = true;\n      }\n      if (skip) continue;\n\n      let siren = '';\n      let naf = '';\n      let ville = (job.location && job.location.display_name) || '';\n      let cp = '';\n      try {\n        const ent = await http({\n          method: 'GET',\n          url: 'https://recherche-entreprises.api.gouv.fr/search',\n          qs: { q: company, per_page: 1 },\n          json: true\n        });\n        const e = ent.results && ent.results[0];\n        if (e) {\n          siren = e.siren || '';\n          naf = (e.siege && e.siege.activite_principale) || e.activite_principale || '';\n          ville = (e.siege && e.siege.libelle_commune) || ville;\n          cp = (e.siege && e.siege.code_postal) || '';\n        }\n      } catch (e) {}\n\n      let type = 'Client final';\n      if (NAF_ESN.indexOf(naf) !== -1) type = 'ESN';\n      else if (NAF_RECRUT.indexOf(naf) !== -1) type = 'Cabinet recrutement';\n      else if (!naf) type = 'Inconnu';\n\n      if (type === 'ESN' || type === 'Cabinet recrutement') continue;\n\n      let dept = cp ? cp.substring(0,2) : '';\n      if (DEPTS_OK.indexOf(dept) === -1) dept = 'Autre';\n\n      const dateSignal = (job.created || '').substring(0,10);\n\n      out.push({ json: {\n        'Entreprise': company,\n        'SIREN / SIRET': siren,\n        'Code NAF': naf,\n        'Type entreprise': type,\n        'Ville': ville,\n        'Departement': dept,\n        'Bassin': b.bassin,\n        'Assigne a': b.assigne,\n        'Signal achat': job.title + ' - ' + b.where + ' (Adzuna, ' + dateSignal + ')',\n        'Intitule poste': job.title || '',\n        'Profils Stack': stacks(job.title),\n        'Date du signal': dateSignal,\n        'Source': 'Adzuna',\n        'Lien offre': job.redirect_url || ''\n      }});\n    }\n  }\n}\nreturn out;\n"
+        },
+        "id": "125f1c8a-7313-45b0-b928-cad5d6c29540",
+        "name": "Adzuna enrichissement classement",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1312,
+          -96
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "upsert",
+          "base": {
+            "__rl": true,
+            "value": "appiuwspImLMu7KJQ",
+            "mode": "list",
+            "cachedResultName": "LinkedIn Contact Management",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+          },
+          "table": {
+            "__rl": true,
+            "value": "tbl2CiHhd4dLQRpHW",
+            "mode": "list",
+            "cachedResultName": "Comptes Cibles",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tbl2CiHhd4dLQRpHW"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {
+              "Suivi direct": false
+            },
+            "matchingColumns": [
+              "Entreprise"
+            ],
+            "schema": [
+              {
+                "id": "id",
+                "displayName": "id",
+                "required": false,
+                "defaultMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": true,
+                "removed": false
+              },
+              {
+                "id": "Entreprise",
+                "displayName": "Entreprise",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "SIREN / SIRET",
+                "displayName": "SIREN / SIRET",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Code NAF",
+                "displayName": "Code NAF",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Type entreprise",
+                "displayName": "Type entreprise",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "options",
+                "options": [
+                  {
+                    "name": "Client final",
+                    "value": "Client final"
+                  },
+                  {
+                    "name": "ESN",
+                    "value": "ESN"
+                  },
+                  {
+                    "name": "Cabinet recrutement",
+                    "value": "Cabinet recrutement"
+                  },
+                  {
+                    "name": "Inconnu",
+                    "value": "Inconnu"
+                  }
+                ],
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Ville",
+                "displayName": "Ville",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Département",
+                "displayName": "Département",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "options",
+                "options": [
+                  {
+                    "name": "35",
+                    "value": "35"
+                  },
+                  {
+                    "name": "56",
+                    "value": "56"
+                  },
+                  {
+                    "name": "22",
+                    "value": "22"
+                  },
+                  {
+                    "name": "29",
+                    "value": "29"
+                  },
+                  {
+                    "name": "44",
+                    "value": "44"
+                  },
+                  {
+                    "name": "49",
+                    "value": "49"
+                  },
+                  {
+                    "name": "85",
+                    "value": "85"
+                  },
+                  {
+                    "name": "Autre",
+                    "value": "Autre"
+                  }
+                ],
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Bassin",
+                "displayName": "Bassin",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "options",
+                "options": [
+                  {
+                    "name": "Grande Région Rennes",
+                    "value": "Grande Région Rennes"
+                  },
+                  {
+                    "name": "Grande Région Nantes",
+                    "value": "Grande Région Nantes"
+                  }
+                ],
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Assigné à",
+                "displayName": "Assigné à",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "options",
+                "options": [
+                  {
+                    "name": "Laurène",
+                    "value": "Laurène"
+                  },
+                  {
+                    "name": "Adrien",
+                    "value": "Adrien"
+                  }
+                ],
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Signal d'achat",
+                "displayName": "Signal d'achat",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Intitulé(s) de poste",
+                "displayName": "Intitulé(s) de poste",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Profils / Stack",
+                "displayName": "Profils / Stack",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "array",
+                "options": [
+                  {
+                    "name": "Java",
+                    "value": "Java"
+                  },
+                  {
+                    "name": ".NET",
+                    "value": ".NET"
+                  },
+                  {
+                    "name": "Python",
+                    "value": "Python"
+                  },
+                  {
+                    "name": "Data",
+                    "value": "Data"
+                  },
+                  {
+                    "name": "IA / ML",
+                    "value": "IA / ML"
+                  },
+                  {
+                    "name": "DevOps",
+                    "value": "DevOps"
+                  },
+                  {
+                    "name": "Architecture",
+                    "value": "Architecture"
+                  },
+                  {
+                    "name": "Chef de projet",
+                    "value": "Chef de projet"
+                  },
+                  {
+                    "name": "Cloud",
+                    "value": "Cloud"
+                  },
+                  {
+                    "name": "Mobile",
+                    "value": "Mobile"
+                  },
+                  {
+                    "name": "Front",
+                    "value": "Front"
+                  },
+                  {
+                    "name": "Autre",
+                    "value": "Autre"
+                  }
+                ],
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Date du signal",
+                "displayName": "Date du signal",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "dateTime",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Source",
+                "displayName": "Source",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "options",
+                "options": [
+                  {
+                    "name": "Adzuna",
+                    "value": "Adzuna"
+                  },
+                  {
+                    "name": "Page emploi directe",
+                    "value": "Page emploi directe"
+                  },
+                  {
+                    "name": "Indeed",
+                    "value": "Indeed"
+                  },
+                  {
+                    "name": "LinkedIn",
+                    "value": "LinkedIn"
+                  },
+                  {
+                    "name": "Autre",
+                    "value": "Autre"
+                  }
+                ],
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Lien offre",
+                "displayName": "Lien offre",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Page LinkedIn entreprise",
+                "displayName": "Page LinkedIn entreprise",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Site emploi",
+                "displayName": "Site emploi",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Suivi direct",
+                "displayName": "Suivi direct",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "boolean",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Statut prospection",
+                "displayName": "Statut prospection",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "options",
+                "options": [
+                  {
+                    "name": "🆕 Nouveau",
+                    "value": "🆕 Nouveau"
+                  },
+                  {
+                    "name": "🔍 À qualifier",
+                    "value": "🔍 À qualifier"
+                  },
+                  {
+                    "name": "📞 À contacter",
+                    "value": "📞 À contacter"
+                  },
+                  {
+                    "name": "🤝 RDV pris",
+                    "value": "🤝 RDV pris"
+                  },
+                  {
+                    "name": "❄️ En veille",
+                    "value": "❄️ En veille"
+                  },
+                  {
+                    "name": "🚫 Exclu (client Shodo)",
+                    "value": "🚫 Exclu (client Shodo)"
+                  }
+                ],
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Notes",
+                "displayName": "Notes",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {
+            "typecast": true
+          }
+        },
+        "id": "98e2d483-a1e7-43b2-9460-b2f503b508da",
+        "name": "Airtable Comptes Cibles upsert",
+        "type": "n8n-nodes-base.airtable",
+        "typeVersion": 2.1,
+        "position": [
+          1616,
+          -96
+        ],
+        "credentials": {
+          "airtableTokenApi": {
+            "id": "sbNAmcpptwiyg3eb",
+            "name": "Airtable Personal Access Token account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Chaque nuit 02h00": {
+        "main": [
+          [
+            {
+              "node": "Adzuna enrichissement classement",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Adzuna enrichissement classement": {
+        "main": [
+          [
+            {
+              "node": "Airtable Comptes Cibles upsert",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Fontaine Pascal",
+    "name": "Version 9a44779e",
+    "description": "",
+    "autosaved": true,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-06-01T11:56:54.652Z",
+        "id": 10,
+        "workflowId": "XcKZyOGhVfqEtd5O",
+        "versionId": "9a44779e-ec55-4d17-9956-58eacbbcdc21",
+        "event": "activated",
+        "userId": "7712e5c5-53a1-4125-b66d-a5cb65f6911b"
+      }
+    ]
+  }
+}

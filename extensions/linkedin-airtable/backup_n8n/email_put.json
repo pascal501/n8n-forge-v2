@@ -1,0 +1,403 @@
+{
+  "name": "Shodo - Enrichissement Email (Rennes/Nantes) - COMPLET",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "WORKFLOW B : ENRICHIR EMAIL (Rennes/Nantes)\n\n1) Airtable Search : contacts Rennes/Nantes sans Email\n2) Apollo API : cherche email pro (60/mois max)\n3) Airtable Update : ecrit Email + tous champs\n\nCadence : 03h00 chaque nuit (apres Workflow A)\n",
+        "height": 300,
+        "width": 400
+      },
+      "id": "e173d6d2-5442-43fe-83c5-28f2f98b07f6",
+      "name": "Setup B",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "e065dc35-da5b-4610-808b-6cb83179a409",
+      "name": "Chaque nuit 03h00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        512,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appiuwspImLMu7KJQ",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Contact Management",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblknsWOhLLtnTtIx",
+          "mode": "list",
+          "cachedResultName": "Contacts LinkedIn",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+        },
+        "options": {}
+      },
+      "id": "3f593b7d-eabf-43b3-87a1-049085ab27f8",
+      "name": "Airtable : Contacts (Rennes/Nantes sans Email)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        752,
+        160
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "sbNAmcpptwiyg3eb",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filtre contacts Rennes/Nantes sans Email (corrigé : v2.1 renvoie les champs à plat)\nconst items = $input.all();\nconst out = [];\nconst geo = ['rennes','bretagne','nantes','loire','pays de la loire','ille','vilaine','atlantique','morbihan','finistere','cotes-d'];\n\nfor (const it of items) {\n  const f = it.json;                          // Airtable v2.1 : champs à plat (f.Email, f['Prénom'], f.id)\n  const email = (f.Email || '').toString().trim();\n  if (email) continue;                        // Priorité LinkedIn : on ne touche pas si déjà rempli\n  const loc = (f.Location || '').toString().toLowerCase();\n  if (!geo.some(g => loc.indexOf(g) !== -1)) continue;\n  out.push({ json: {\n    id: f.id,                                 // record id (match Airtable)\n    prenom: (f['Prénom'] || '').toString().trim(),\n    nom: (f['Nom'] || '').toString().trim(),\n    entreprise: (f['Entreprise'] || '').toString().trim(),\n    notes: (f['Notes'] || '').toString()\n  }});\n}\nreturn out;\n"
+      },
+      "id": "68278d0e-46e6-43b1-8295-b86fb84e7106",
+      "name": "Filtre Rennes/Nantes sans Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.apollo.io/v1/people/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "api_key",
+              "value": "k3cOQ-liHFRMImStCcAdVw"
+            },
+            {
+              "name": "first_name",
+              "value": "={{$json.prenom}}"
+            },
+            {
+              "name": "last_name",
+              "value": "={{$json.nom}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a913b816-91fe-479e-97a6-2d6553708f6e",
+      "name": "HTTP : Apollo (email)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1264,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appiuwspImLMu7KJQ",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Contact Management",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblknsWOhLLtnTtIx",
+          "mode": "list",
+          "cachedResultName": "Contacts LinkedIn",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Profile Name",
+              "displayName": "Profile Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LinkedIn URL",
+              "displayName": "LinkedIn URL",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Confirmed as Prospect",
+              "displayName": "Confirmed as Prospect",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Confirmed as Resource",
+              "displayName": "Confirmed as Resource",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Prenom",
+              "displayName": "Prenom",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Nom",
+              "displayName": "Nom",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Entreprise",
+              "displayName": "Entreprise",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Poste",
+              "displayName": "Poste",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Telephone",
+              "displayName": "Telephone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Profile Summary",
+              "displayName": "Profile Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Site web",
+              "displayName": "Site web",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "bedd4261-47f3-4fa7-a063-0c33261eff93",
+      "name": "Airtable : Update Email",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1632,
+        160
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "sbNAmcpptwiyg3eb",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrait l'email Apollo + construit l'historique Notes (porte id & Notes via la source)\nconst apollo = $input.all();\nconst src = $('Filtre Rennes/Nantes sans Email').all();   // mêmes items, même ordre\nconst out = [];\n\nfor (let i = 0; i < apollo.length; i++) {\n  const resp = apollo[i].json || {};\n  const s = (src[i] && src[i].json) ? src[i].json : {};\n  let email = '';\n  if (Array.isArray(resp.people) && resp.people.length > 0) {\n    const e = (resp.people[0].email || '').toString();\n    if (e && !/not_unlocked|locked|email_not/i.test(e)) email = e;   // ignore les emails verrouillés\n  }\n  if (!email) continue;                        // pas d'email exploitable → on n'écrit rien\n  const now = new Date();\n  const d = now.toLocaleDateString('fr-FR');\n  const t = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });\n  const entry = '📅 ' + d + ' ' + t + ' — ENRICHISSEMENT APOLLO (complément)\\n• Email: vide → ' + email + ' (via Apollo)';\n  const prev = s.notes || '';\n  const notes = prev ? (entry + '\\n\\n' + '─'.repeat(30) + '\\n\\n' + prev) : entry;\n  out.push({ json: { id: s.id, Email: email, Notes: notes } });\n}\nreturn out;\n"
+      },
+      "id": "c0de0001-aaaa-4bbb-8ccc-000000000001",
+      "name": "Extrait email + Notes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1384,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Chaque nuit 03h00": {
+      "main": [
+        [
+          {
+            "node": "Airtable : Contacts (Rennes/Nantes sans Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable : Contacts (Rennes/Nantes sans Email)": {
+      "main": [
+        [
+          {
+            "node": "Filtre Rennes/Nantes sans Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtre Rennes/Nantes sans Email": {
+      "main": [
+        [
+          {
+            "node": "HTTP : Apollo (email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP : Apollo (email)": {
+      "main": [
+        [
+          {
+            "node": "Extrait email + Notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrait email + Notes": {
+      "main": [
+        [
+          {
+            "node": "Airtable : Update Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}

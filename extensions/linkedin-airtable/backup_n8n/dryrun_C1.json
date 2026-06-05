@@ -1,0 +1,57 @@
+{
+  "name": "Shodo - DRY-RUN liens C1 (contacts vers Companies)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c1-trigger-001",
+      "name": "Déclencheur manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "value": "appjbx1NZYVRvRqKR", "mode": "list" },
+        "table": { "value": "tbl1Qc2oJv8aiWhd5", "mode": "list" },
+        "options": {}
+      },
+      "id": "c1-contacts-001",
+      "name": "Airtable : Contacts",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [430, 300],
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "value": "appjbx1NZYVRvRqKR", "mode": "list" },
+        "table": { "value": "tblIG8xf2fmMPVksm", "mode": "list" },
+        "options": {}
+      },
+      "id": "c1-companies-001",
+      "name": "Airtable : Companies",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [640, 300],
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/\\b(sa|sas|sarl|sasu|eurl|group|groupe|holding|france|se)\\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst companies = $input.all().map(it => it.json);\nconst contacts = $('Airtable : Contacts').all().map(it => it.json);\nconst byName = new Map();\nfor (const c of companies) { const n = norm(c['Company Name']); if (n && !byName.has(n)) byName.set(n, c); }\nconst out = [];\nfor (const ct of contacts) {\n  const ent = ct['Entreprise']; const co2 = ct['Companies 2'];\n  const hasLink = (Array.isArray(ent) && ent.length) || (Array.isArray(co2) && co2.length);\n  if (hasLink) continue;\n  const emp = (ct['Company Name'] || '').toString().trim();\n  if (!emp) continue;\n  const m = byName.get(norm(emp));\n  if (m) { out.push({ json: { contact: ct['Profile Name'] || '(sans nom)', employeur_texte: emp, company: m['Company Name'], contact_id: ct.id, company_id: m.id } }); }\n}\nout.unshift({ json: { contact: '=== ' + out.length + ' liens C1 a poser ===', employeur_texte: '', company: '', contact_id: '', company_id: '' } });\nreturn out;"
+      },
+      "id": "c1-code-001",
+      "name": "Dry-run liens C1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Déclencheur manuel": { "main": [[{ "node": "Airtable : Contacts", "type": "main", "index": 0 }]] },
+    "Airtable : Contacts": { "main": [[{ "node": "Airtable : Companies", "type": "main", "index": 0 }]] },
+    "Airtable : Companies": { "main": [[{ "node": "Dry-run liens C1", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "saveDataSuccessExecution": "all", "saveDataErrorExecution": "all" }
+}

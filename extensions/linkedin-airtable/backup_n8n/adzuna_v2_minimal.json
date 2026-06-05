@@ -1,0 +1,104 @@
+{
+  "name": "Shodo - Moteur de cibles v2 (Adzuna + Gemini LinkedIn)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "SETUP - Moteur de cibles Shodo v2 (Adzuna + Gemini)\n\n1) Clé Adzuna : variable d'environnement (ADZUNA_APP_ID / ADZUNA_APP_KEY)\n2) Clé Gemini : variable d'environnement (GEMINI_API_KEY)\n3) Airtable : connexion déjà configurée\n4) Flux : Adzuna → Upsert Comptes Cibles → Gemini enrichissement LinkedIn → Update page LinkedIn",
+        "height": 360,
+        "width": 420
+      },
+      "id": "setup-v2-001",
+      "name": "Setup v2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [528, -256]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "trigger-v2-001",
+      "name": "Chaque nuit 02h00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [1056, -96]
+    },
+    {
+      "parameters": {
+        "jsCode": "const APP_ID = $env.ADZUNA_APP_ID; const APP_KEY = $env.ADZUNA_APP_KEY;\nconst bassins = [\n  { where: 'Rennes', distance: 80, bassin: 'Grande Région Rennes', assigne: 'Laurène' },\n  { where: 'Nantes', distance: 80, bassin: 'Grande Région Nantes', assigne: 'Adrien' }\n];\nconst PAGES = 3, MAX_DAYS_OLD = 2, DEPTS_OK = ['35','56','22','29','44','49','85'];\nconst NAF_ESN = ['62.01Z','62.02A','62.02B','62.03Z','62.09Z','70.22Z'], NAF_RECRUT = ['78.10Z','78.20Z','78.30Z'];\nconst EXCLUSION_SHODO = [];\nfunction stacks(t) { t = (t||'').toLowerCase(); const o = []; if(/java/.test(t)) o.push('Java'); if(/\\.net|c#/.test(t)) o.push('.NET'); if(/python/.test(t)) o.push('Python'); if(/data/.test(t)) o.push('Data'); if(/\\bia\\b|machine learning|\\bml\\b|llm/.test(t)) o.push('IA / ML'); if(/devops|docker|kubernetes/.test(t)) o.push('DevOps'); if(/architect/.test(t)) o.push('Architecture'); if(/chef de projet|product owner|scrum/.test(t)) o.push('Chef de projet'); if(/cloud|aws|azure|gcp/.test(t)) o.push('Cloud'); if(/mobile|android|ios|flutter/.test(t)) o.push('Mobile'); if(/front|react|angular|vue/.test(t)) o.push('Front'); return o.length ? o : ['Autre']; }\nconst http = this.helpers.httpRequest, out = [];\nfor (const b of bassins) {\n  for (let i = 0; i !== PAGES; i++) {\n    let res; try { res = await http({ method: 'GET', url: 'https://api.adzuna.com/v1/api/jobs/fr/search/' + (i+1), qs: { app_id: APP_ID, app_key: APP_KEY, where: b.where, distance: b.distance, category: 'it-jobs', max_days_old: MAX_DAYS_OLD, results_per_page: 50, sort_by: 'date' }, json: true }); } catch (e) { continue; }\n    for (const job of (res.results || [])) {\n      const company = ((job.company && job.company.display_name) || '').trim();\n      if (!company) continue;\n      let skip = false; for (const c of EXCLUSION_SHODO) { if (company.toLowerCase().indexOf(c.toLowerCase()) !== -1) skip = true; }\n      if (skip) continue;\n      let siren = '', naf = '', ville = (job.location && job.location.display_name) || '', cp = '';\n      try { const ent = await http({ method: 'GET', url: 'https://recherche-entreprises.api.gouv.fr/search', qs: { q: company, per_page: 1 }, json: true }); const e = ent.results && ent.results[0]; if (e) { siren = e.siren || ''; naf = (e.siege && e.siege.activite_principale) || ''; ville = (e.siege && e.siege.libelle_commune) || ville; cp = (e.siege && e.siege.code_postal) || ''; } } catch (e) {}\n      let type = 'Client final'; if (NAF_ESN.indexOf(naf) !== -1) type = 'ESN'; else if (NAF_RECRUT.indexOf(naf) !== -1) type = 'Cabinet recrutement'; else if (!naf) type = 'Inconnu';\n      if (type === 'ESN' || type === 'Cabinet recrutement') continue;\n      let dept = cp ? cp.substring(0,2) : ''; if (DEPTS_OK.indexOf(dept) === -1) dept = 'Autre';\n      const dateSignal = (job.created || '').substring(0,10);\n      out.push({ json: { 'Entreprise': company, 'SIREN / SIRET': siren, 'Code NAF': naf, 'Type entreprise': type, 'Ville': ville, 'Département': dept, 'Bassin': b.bassin, 'Assigné à': b.assigne, \"Signal d'achat\": job.title + ' - ' + b.where + ' (Adzuna)', 'Intitulé(s) de poste': job.title || '', 'Profils / Stack': stacks(job.title), 'Date du signal': dateSignal, 'Source': 'Adzuna', 'Lien offre': job.redirect_url || '' } });\n    }\n  }\n}\nconst seen = new Set(); const dedup = [];\nfor (const o of out) { const k = (o.json.Entreprise || '').toLowerCase(); if (!k || seen.has(k)) continue; seen.add(k); dedup.push(o); }\nreturn dedup;"
+      },
+      "id": "adzuna-v2-001",
+      "name": "Adzuna enrichissement classement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1312, -96]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": { "value": "appiuwspImLMu7KJQ", "mode": "list" },
+        "table": { "value": "tbl2CiHhd4dLQRpHW", "mode": "list" },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": ["Entreprise"],
+          "schema": [
+            { "id": "Entreprise", "displayName": "Entreprise", "type": "string" }
+          ]
+        },
+        "options": { "typecast": true }
+      },
+      "id": "airtable-upsert-v2-001",
+      "name": "Airtable Comptes Cibles upsert",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [1616, -96],
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all(); const http = this.helpers.httpRequest; const GKEY = $env.GEMINI_API_KEY; const cache = new Map(); const out = [];\nconst clean = n => (n || '').replace(/\\s*\\([^)]*\\)\\s*/g, ' ').replace(/—.*$/, '').replace(/\\s+/g, ' ').trim();\nconst BATCH_SIZE = 10;\nconst batch = items.slice(0, BATCH_SIZE);\nfor (const it of batch) {\n  const f = it.json; const id = f.id; const fields = f.fields || f; const company = (fields.Entreprise || '').toString().trim();\n  if (!company || !id) continue;\n  const c = clean(company); let url = '';\n  if (cache.has(c)) { url = cache.get(c); } else {\n    try {\n      if (GKEY) {\n        const prompt = \"Quelle est l'URL exacte de la page LinkedIn officielle de l'entreprise « \" + c + \" » en France ? Réponds UNIQUEMENT par l'URL au format https://www.linkedin.com/company/... Si tu n'es pas certain à 100%, réponds exactement: AUCUNE. Aucun autre texte.\";\n        const r = await http({ method: 'POST', url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(GKEY), body: { contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0 } }, json: true, timeout: 10000 });\n        const parts = (r && r.candidates && r.candidates[0] && r.candidates[0].content && r.candidates[0].content.parts) || [];\n        const txt = parts.map(p => p.text || '').join(' ');\n        const m = txt.match(/https?:\\/\\/[a-z.]*linkedin\\.com\\/company\\/[^\\s)]+/i);\n        if (m) url = m[0].replace(/[).,]+$/, '').replace(/\\/$/, '');\n      }\n    } catch (e) { url = ''; }\n    cache.set(c, url);\n  }\n  if (url) out.push({ json: { id: id, 'Page LinkedIn entreprise': url } });\n}\nreturn out;"
+      },
+      "id": "gemini-v2-001",
+      "name": "Gemini : enrichissement LinkedIn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, -96]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": { "value": "appiuwspImLMu7KJQ", "mode": "list" },
+        "table": { "value": "tbl2CiHhd4dLQRpHW", "mode": "list" },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": ["id"],
+          "schema": [
+            { "id": "id", "displayName": "id", "type": "string" },
+            { "id": "Page LinkedIn entreprise", "displayName": "Page LinkedIn entreprise", "type": "string" }
+          ]
+        },
+        "options": { "typecast": true }
+      },
+      "id": "airtable-update-v2-001",
+      "name": "Airtable : Update LinkedIn",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [2224, -96],
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    }
+  ],
+  "connections": {
+    "Chaque nuit 02h00": { "main": [[{ "node": "Adzuna enrichissement classement", "type": "main", "index": 0 }]] },
+    "Adzuna enrichissement classement": { "main": [[{ "node": "Airtable Comptes Cibles upsert", "type": "main", "index": 0 }]] },
+    "Airtable Comptes Cibles upsert": { "main": [[{ "node": "Gemini : enrichissement LinkedIn", "type": "main", "index": 0 }]] },
+    "Gemini : enrichissement LinkedIn": { "main": [[{ "node": "Airtable : Update LinkedIn", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

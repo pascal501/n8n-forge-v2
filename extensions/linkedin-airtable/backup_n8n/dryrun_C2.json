@@ -1,0 +1,75 @@
+{
+  "name": "Shodo - DRY-RUN incubation C2 (employeurs absents)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c2-trigger-001",
+      "name": "Déclencheur manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "value": "appjbx1NZYVRvRqKR", "mode": "list" },
+        "table": { "value": "tbl1Qc2oJv8aiWhd5", "mode": "list" },
+        "options": {}
+      },
+      "id": "c2-contacts-001",
+      "name": "Airtable : Contacts",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [400, 300],
+      "retryOnFail": true, "maxTries": 3, "waitBetweenTries": 3000,
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "value": "appjbx1NZYVRvRqKR", "mode": "list" },
+        "table": { "value": "tblIG8xf2fmMPVksm", "mode": "list" },
+        "options": {}
+      },
+      "id": "c2-companies-001",
+      "name": "Airtable : Companies",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [600, 300],
+      "retryOnFail": true, "maxTries": 3, "waitBetweenTries": 3000, "executeOnce": true,
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "value": "appiuwspImLMu7KJQ", "mode": "list" },
+        "table": { "value": "tbl2CiHhd4dLQRpHW", "mode": "list" },
+        "options": {}
+      },
+      "id": "c2-cibles-001",
+      "name": "Airtable : Comptes Cibles",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [800, 300],
+      "retryOnFail": true, "maxTries": 3, "waitBetweenTries": 3000, "executeOnce": true,
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/\\b(sa|sas|sarl|sasu|eurl|group|groupe|holding|france|se)\\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst cibles = $input.all().map(it => it.json);\nconst contacts = $('Airtable : Contacts').all().map(it => it.json);\nconst companies = $('Airtable : Companies').all().map(it => it.json);\nconst compNames = new Set(companies.map(c => norm(c['Company Name'])).filter(Boolean));\nconst cibleNames = new Set(cibles.map(c => norm(c['Entreprise'])).filter(Boolean));\nconst BLOCK = new Set(['entreprise', 'independant', 'etudiant']);\nconst isJunk = (n) => !n || n.length < 2 || BLOCK.has(n) || /freelance|auto entrepreneur|recherche d emploi|jardin|portee mondial/.test(n);\nconst seen = new Set(); const out = [];\nfor (const ct of contacts) {\n  const ent = ct['Entreprise']; const co2 = ct['Companies 2'];\n  const hasLink = (Array.isArray(ent) && ent.length) || (Array.isArray(co2) && co2.length);\n  if (hasLink) continue;\n  const emp = (ct['Company Name'] || '').toString().trim();\n  if (!emp) continue;\n  const n = norm(emp);\n  if (compNames.has(n)) continue;\n  if (seen.has(n)) continue; seen.add(n);\n  let statut = 'A INCUBER';\n  if (isJunk(n)) statut = 'SUSPECT (exclure ?)';\n  else if (cibleNames.has(n)) statut = 'DEJA en Cibles (skip)';\n  out.push({ json: { employeur: emp, statut } });\n}\nout.sort((a, b) => (a.json.statut > b.json.statut ? 1 : -1));\nconst nInc = out.filter(o => o.json.statut === 'A INCUBER').length;\nconst nSus = out.filter(o => o.json.statut.startsWith('SUSPECT')).length;\nconst nDup = out.filter(o => o.json.statut.startsWith('DEJA')).length;\nout.unshift({ json: { employeur: '=== ' + out.length + ' employeurs C2 distincts ===', statut: nInc + ' a incuber / ' + nSus + ' suspects / ' + nDup + ' deja en cibles' } });\nreturn out;"
+      },
+      "id": "c2-code-001",
+      "name": "Dry-run incubation C2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1010, 300]
+    }
+  ],
+  "connections": {
+    "Déclencheur manuel": { "main": [[{ "node": "Airtable : Contacts", "type": "main", "index": 0 }]] },
+    "Airtable : Contacts": { "main": [[{ "node": "Airtable : Companies", "type": "main", "index": 0 }]] },
+    "Airtable : Companies": { "main": [[{ "node": "Airtable : Comptes Cibles", "type": "main", "index": 0 }]] },
+    "Airtable : Comptes Cibles": { "main": [[{ "node": "Dry-run incubation C2", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "saveDataSuccessExecution": "all", "saveDataErrorExecution": "all" }
+}

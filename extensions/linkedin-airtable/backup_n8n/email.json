@@ -1,0 +1,786 @@
+{
+  "updatedAt": "2026-06-01T11:55:24.511Z",
+  "createdAt": "2026-06-01T11:55:24.511Z",
+  "id": "bG1ndFjSGdd6WONd",
+  "name": "Shodo - Enrichissement Email (Rennes/Nantes) - COMPLET",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "WORKFLOW B : ENRICHIR EMAIL (Rennes/Nantes)\n\n1) Airtable Search : contacts Rennes/Nantes sans Email\n2) Apollo API : cherche email pro (60/mois max)\n3) Airtable Update : ecrit Email + tous champs\n\nCadence : 03h00 chaque nuit (apres Workflow A)\n",
+        "height": 300,
+        "width": 400
+      },
+      "id": "e173d6d2-5442-43fe-83c5-28f2f98b07f6",
+      "name": "Setup B",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "e065dc35-da5b-4610-808b-6cb83179a409",
+      "name": "Chaque nuit 03h00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        512,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "appiuwspImLMu7KJQ",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Contact Management",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblknsWOhLLtnTtIx",
+          "mode": "list",
+          "cachedResultName": "Contacts LinkedIn",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+        },
+        "options": {}
+      },
+      "id": "3f593b7d-eabf-43b3-87a1-049085ab27f8",
+      "name": "Airtable : Contacts (Rennes/Nantes sans Email)",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        752,
+        160
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "sbNAmcpptwiyg3eb",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filtre contacts Rennes/Nantes sans Email\nconst items = $input.all();\nconst out = [];\n\nconst geo_targets = ['rennes', 'bretagne', 'nantes', 'loire', 'pays de la loire', 'ille et vilaine', 'loire-atlantique'];\n\nfor (let i = 0; i !== items.length; i++) {\n  const f = items[i].fields;\n  \n  // Skip si Email existe\n  if (f.Email && f.Email.trim().length > 0) continue;\n  \n  const loc = (f.Location || '').toLowerCase();\n  \n  // Check si location correspond\n  let match = false;\n  for (let g = 0; g !== geo_targets.length; g++) {\n    if (loc.indexOf(geo_targets[g]) !== -1) { match = true; break; }\n  }\n  if (!match) continue;\n  \n  out.push({ json: {\n    record_id: items[i].id,\n    prenom: f.Prenom || '',\n    nom: f.Nom || '',\n    entreprise: f.Entreprise || ''\n  }});\n}\nreturn out;\n"
+      },
+      "id": "68278d0e-46e6-43b1-8295-b86fb84e7106",
+      "name": "Filtre Rennes/Nantes sans Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.apollo.io/v1/people/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "api_key",
+              "value": "k3cOQ-liHFRMImStCcAdVw"
+            },
+            {
+              "name": "first_name",
+              "value": "={{$json.prenom}}"
+            },
+            {
+              "name": "last_name",
+              "value": "={{$json.nom}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a913b816-91fe-479e-97a6-2d6553708f6e",
+      "name": "HTTP : Apollo (email)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1264,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appiuwspImLMu7KJQ",
+          "mode": "list",
+          "cachedResultName": "LinkedIn Contact Management",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblknsWOhLLtnTtIx",
+          "mode": "list",
+          "cachedResultName": "Contacts LinkedIn",
+          "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Profile Name",
+              "displayName": "Profile Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "LinkedIn URL",
+              "displayName": "LinkedIn URL",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Confirmed as Prospect",
+              "displayName": "Confirmed as Prospect",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Confirmed as Resource",
+              "displayName": "Confirmed as Resource",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Prenom",
+              "displayName": "Prenom",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Nom",
+              "displayName": "Nom",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Entreprise",
+              "displayName": "Entreprise",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Poste",
+              "displayName": "Poste",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Telephone",
+              "displayName": "Telephone",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Profile Summary",
+              "displayName": "Profile Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Site web",
+              "displayName": "Site web",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "typecast": true
+        }
+      },
+      "id": "bedd4261-47f3-4fa7-a063-0c33261eff93",
+      "name": "Airtable : Update Email",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        1504,
+        160
+      ],
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "sbNAmcpptwiyg3eb",
+          "name": "Airtable Personal Access Token account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Chaque nuit 03h00": {
+      "main": [
+        [
+          {
+            "node": "Airtable : Contacts (Rennes/Nantes sans Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable : Contacts (Rennes/Nantes sans Email)": {
+      "main": [
+        [
+          {
+            "node": "Filtre Rennes/Nantes sans Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtre Rennes/Nantes sans Email": {
+      "main": [
+        [
+          {
+            "node": "HTTP : Apollo (email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP : Apollo (email)": {
+      "main": [
+        [
+          {
+            "node": "Airtable : Update Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Chaque nuit 03h00": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "pinData": {},
+  "versionId": "598abc47-3650-41db-9205-aa3219796e92",
+  "activeVersionId": "598abc47-3650-41db-9205-aa3219796e92",
+  "versionCounter": 1,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-06-01T11:55:24.518Z",
+      "createdAt": "2026-06-01T11:55:24.518Z",
+      "role": "workflow:owner",
+      "workflowId": "bG1ndFjSGdd6WONd",
+      "projectId": "8pDHrPYWUh4XUovi",
+      "project": {
+        "updatedAt": "2026-04-10T19:26:19.327Z",
+        "createdAt": "2026-04-10T18:59:46.387Z",
+        "id": "8pDHrPYWUh4XUovi",
+        "name": "Fontaine Pascal <pascal@dinaou.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "7712e5c5-53a1-4125-b66d-a5cb65f6911b"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-06-01T11:55:48Z",
+    "createdAt": "2026-06-01T11:55:24.523Z",
+    "versionId": "598abc47-3650-41db-9205-aa3219796e92",
+    "workflowId": "bG1ndFjSGdd6WONd",
+    "nodes": [
+      {
+        "parameters": {
+          "content": "WORKFLOW B : ENRICHIR EMAIL (Rennes/Nantes)\n\n1) Airtable Search : contacts Rennes/Nantes sans Email\n2) Apollo API : cherche email pro (60/mois max)\n3) Airtable Update : ecrit Email + tous champs\n\nCadence : 03h00 chaque nuit (apres Workflow A)\n",
+          "height": 300,
+          "width": 400
+        },
+        "id": "e173d6d2-5442-43fe-83c5-28f2f98b07f6",
+        "name": "Setup B",
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 3 * * *"
+              }
+            ]
+          }
+        },
+        "id": "e065dc35-da5b-4610-808b-6cb83179a409",
+        "name": "Chaque nuit 03h00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          512,
+          160
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "search",
+          "base": {
+            "__rl": true,
+            "value": "appiuwspImLMu7KJQ",
+            "mode": "list",
+            "cachedResultName": "LinkedIn Contact Management",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+          },
+          "table": {
+            "__rl": true,
+            "value": "tblknsWOhLLtnTtIx",
+            "mode": "list",
+            "cachedResultName": "Contacts LinkedIn",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+          },
+          "options": {}
+        },
+        "id": "3f593b7d-eabf-43b3-87a1-049085ab27f8",
+        "name": "Airtable : Contacts (Rennes/Nantes sans Email)",
+        "type": "n8n-nodes-base.airtable",
+        "typeVersion": 2.1,
+        "position": [
+          752,
+          160
+        ],
+        "credentials": {
+          "airtableTokenApi": {
+            "id": "sbNAmcpptwiyg3eb",
+            "name": "Airtable Personal Access Token account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Filtre contacts Rennes/Nantes sans Email\nconst items = $input.all();\nconst out = [];\n\nconst geo_targets = ['rennes', 'bretagne', 'nantes', 'loire', 'pays de la loire', 'ille et vilaine', 'loire-atlantique'];\n\nfor (let i = 0; i !== items.length; i++) {\n  const f = items[i].fields;\n  \n  // Skip si Email existe\n  if (f.Email && f.Email.trim().length > 0) continue;\n  \n  const loc = (f.Location || '').toLowerCase();\n  \n  // Check si location correspond\n  let match = false;\n  for (let g = 0; g !== geo_targets.length; g++) {\n    if (loc.indexOf(geo_targets[g]) !== -1) { match = true; break; }\n  }\n  if (!match) continue;\n  \n  out.push({ json: {\n    record_id: items[i].id,\n    prenom: f.Prenom || '',\n    nom: f.Nom || '',\n    entreprise: f.Entreprise || ''\n  }});\n}\nreturn out;\n"
+        },
+        "id": "68278d0e-46e6-43b1-8295-b86fb84e7106",
+        "name": "Filtre Rennes/Nantes sans Email",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1008,
+          160
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://api.apollo.io/v1/people/search",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "api_key",
+                "value": "k3cOQ-liHFRMImStCcAdVw"
+              },
+              {
+                "name": "first_name",
+                "value": "={{$json.prenom}}"
+              },
+              {
+                "name": "last_name",
+                "value": "={{$json.nom}}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "a913b816-91fe-479e-97a6-2d6553708f6e",
+        "name": "HTTP : Apollo (email)",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 3,
+        "position": [
+          1264,
+          160
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "base": {
+            "__rl": true,
+            "value": "appiuwspImLMu7KJQ",
+            "mode": "list",
+            "cachedResultName": "LinkedIn Contact Management",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ"
+          },
+          "table": {
+            "__rl": true,
+            "value": "tblknsWOhLLtnTtIx",
+            "mode": "list",
+            "cachedResultName": "Contacts LinkedIn",
+            "cachedResultUrl": "https://airtable.com/appiuwspImLMu7KJQ/tblknsWOhLLtnTtIx"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {},
+            "matchingColumns": [
+              "id"
+            ],
+            "schema": [
+              {
+                "id": "id",
+                "displayName": "id",
+                "required": false,
+                "defaultMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": true,
+                "removed": false
+              },
+              {
+                "id": "Profile Name",
+                "displayName": "Profile Name",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "LinkedIn URL",
+                "displayName": "LinkedIn URL",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Confirmed as Prospect",
+                "displayName": "Confirmed as Prospect",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "boolean",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Confirmed as Resource",
+                "displayName": "Confirmed as Resource",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "boolean",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Prenom",
+                "displayName": "Prenom",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Nom",
+                "displayName": "Nom",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Entreprise",
+                "displayName": "Entreprise",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Poste",
+                "displayName": "Poste",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Email",
+                "displayName": "Email",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Telephone",
+                "displayName": "Telephone",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Location",
+                "displayName": "Location",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Profile Summary",
+                "displayName": "Profile Summary",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "Site web",
+                "displayName": "Site web",
+                "required": false,
+                "defaultMatch": false,
+                "canBeUsedToMatch": true,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {
+            "typecast": true
+          }
+        },
+        "id": "bedd4261-47f3-4fa7-a063-0c33261eff93",
+        "name": "Airtable : Update Email",
+        "type": "n8n-nodes-base.airtable",
+        "typeVersion": 2.1,
+        "position": [
+          1504,
+          160
+        ],
+        "credentials": {
+          "airtableTokenApi": {
+            "id": "sbNAmcpptwiyg3eb",
+            "name": "Airtable Personal Access Token account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Chaque nuit 03h00": {
+        "main": [
+          [
+            {
+              "node": "Airtable : Contacts (Rennes/Nantes sans Email)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Airtable : Contacts (Rennes/Nantes sans Email)": {
+        "main": [
+          [
+            {
+              "node": "Filtre Rennes/Nantes sans Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filtre Rennes/Nantes sans Email": {
+        "main": [
+          [
+            {
+              "node": "HTTP : Apollo (email)",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP : Apollo (email)": {
+        "main": [
+          [
+            {
+              "node": "Airtable : Update Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Fontaine Pascal",
+    "name": "Version 598abc47",
+    "description": "",
+    "autosaved": true,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-06-01T11:55:48.411Z",
+        "id": 8,
+        "workflowId": "bG1ndFjSGdd6WONd",
+        "versionId": "598abc47-3650-41db-9205-aa3219796e92",
+        "event": "activated",
+        "userId": "7712e5c5-53a1-4125-b66d-a5cb65f6911b"
+      }
+    ]
+  }
+}

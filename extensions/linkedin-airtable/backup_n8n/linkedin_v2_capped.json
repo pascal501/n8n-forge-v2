@@ -1,0 +1,67 @@
+{
+  "name": "Shodo - Enrichissement LinkedIn Comptes Cibles (Gemini)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 4 * * *" }] }
+      },
+      "id": "li-trigger-001",
+      "name": "Chaque nuit 04h00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "value": "appiuwspImLMu7KJQ", "mode": "list" },
+        "table": { "value": "tbl2CiHhd4dLQRpHW", "mode": "list" },
+        "options": {}
+      },
+      "id": "li-search-001",
+      "name": "Airtable : Comptes Cibles",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [460, 300],
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all(); const http = this.helpers.httpRequest; const GKEY = $env.GEMINI_API_KEY; const out = [];\nconst MAX_PAR_RUN = 18;\nconst clean = n => (n || '').replace(/\\s*\\([^)]*\\)\\s*/g, ' ').replace(/—.*$/, '').replace(/\\s+/g, ' ').trim();\n// On ne garde que les cibles SANS page LinkedIn, plafonnées pour rester sous le timeout 300s\nconst todo = items.filter(it => { const f = it.json; return (f.Entreprise || '').toString().trim() && !((f['Page LinkedIn entreprise'] || '').toString().trim()); }).slice(0, MAX_PAR_RUN);\nfor (const it of todo) {\n  const f = it.json; const id = f.id; const company = (f.Entreprise || '').toString().trim();\n  if (!company || !id) continue;\n  const c = clean(company); let url = '';\n  try {\n    if (GKEY) {\n      const prompt = \"Quelle est l'URL exacte de la page LinkedIn officielle de l'entreprise « \" + c + \" » en France ? Réponds UNIQUEMENT par l'URL au format https://www.linkedin.com/company/... Si tu n'es pas certain à 100%, réponds exactement: AUCUNE. Aucun autre texte.\";\n      const r = await http({ method: 'POST', url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(GKEY), body: { contents: [{ parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0 } }, json: true, timeout: 12000 });\n      const parts = (r && r.candidates && r.candidates[0] && r.candidates[0].content && r.candidates[0].content.parts) || [];\n      const txt = parts.map(p => p.text || '').join(' ');\n      const m = txt.match(/https?:\\/\\/[a-z.]*linkedin\\.com\\/company\\/[^\\s)]+/i);\n      if (m) url = m[0].replace(/[).,]+$/, '').replace(/\\/$/, '');\n    }\n  } catch (e) { url = ''; }\n  if (url) out.push({ json: { id: id, 'Page LinkedIn entreprise': url } });\n}\nreturn out;"
+      },
+      "id": "li-gemini-001",
+      "name": "Gemini : page LinkedIn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": { "value": "appiuwspImLMu7KJQ", "mode": "list" },
+        "table": { "value": "tbl2CiHhd4dLQRpHW", "mode": "list" },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": ["id"],
+          "schema": [
+            { "id": "id", "displayName": "id", "type": "string" },
+            { "id": "Page LinkedIn entreprise", "displayName": "Page LinkedIn entreprise", "type": "string" }
+          ]
+        },
+        "options": { "typecast": true }
+      },
+      "id": "li-update-001",
+      "name": "Airtable : Update page LinkedIn",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [900, 300],
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    }
+  ],
+  "connections": {
+    "Chaque nuit 04h00": { "main": [[{ "node": "Airtable : Comptes Cibles", "type": "main", "index": 0 }]] },
+    "Airtable : Comptes Cibles": { "main": [[{ "node": "Gemini : page LinkedIn", "type": "main", "index": 0 }]] },
+    "Gemini : page LinkedIn": { "main": [[{ "node": "Airtable : Update page LinkedIn", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "saveDataSuccessExecution": "all", "saveDataErrorExecution": "all" }
+}

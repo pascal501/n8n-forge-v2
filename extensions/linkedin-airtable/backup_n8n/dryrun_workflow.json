@@ -1,0 +1,57 @@
+{
+  "name": "Shodo - DRY-RUN rapprochement Cibles vers Companies",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "dr-trigger-001",
+      "name": "Déclencheur manuel",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "value": "appiuwspImLMu7KJQ", "mode": "list" },
+        "table": { "value": "tbl2CiHhd4dLQRpHW", "mode": "list" },
+        "options": {}
+      },
+      "id": "dr-cibles-001",
+      "name": "Airtable : Comptes Cibles",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [460, 300],
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": { "value": "appjbx1NZYVRvRqKR", "mode": "list" },
+        "table": { "value": "tblIG8xf2fmMPVksm", "mode": "list" },
+        "options": {}
+      },
+      "id": "dr-companies-001",
+      "name": "Airtable : Companies",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [680, 300],
+      "credentials": { "airtableTokenApi": { "id": "sbNAmcpptwiyg3eb", "name": "Airtable Personal Access Token account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const norm = s => (s || '').toString().toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').replace(/\\b(sa|sas|sarl|sasu|eurl|group|groupe|holding|france|se)\\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst slug = u => { const m = (u || '').toString().toLowerCase().match(/linkedin\\.com\\/company\\/([^\\/?#]+)/); return m ? m[1] : ''; };\nconst companies = $input.all().map(it => it.json);\nconst cibles = $('Airtable : Comptes Cibles').all().map(it => it.json);\nconst byName = new Map(), bySlug = new Map(), bySiren = new Map();\nfor (const c of companies) { const n = norm(c['Company Name']); if (n) byName.set(n, c); const s = slug(c['Linkedin Url']); if (s) bySlug.set(s, c); const si = (c['SIREN'] || '').toString().replace(/\\D/g, ''); if (si) bySiren.set(si, c); }\nconst out = [];\nfor (const cb of cibles) {\n  if ((cb['Qualif IA'] || '') !== 'Client final') continue;\n  const name = (cb.Entreprise || '').toString().trim();\n  const siren = (cb['SIREN / SIRET'] || '').toString().replace(/\\D/g, '');\n  const cslug = slug(cb['Page LinkedIn entreprise']);\n  let match = null, by = '';\n  if (siren && bySiren.has(siren)) { match = bySiren.get(siren); by = 'siren'; }\n  else if (byName.has(norm(name))) { match = byName.get(norm(name)); by = 'nom'; }\n  else if (cslug && bySlug.has(cslug)) { match = bySlug.get(cslug); by = 'linkedin'; }\n  if (match) {\n    const fill = [];\n    if (siren && !((match['SIREN'] || '').toString().trim())) fill.push('SIREN');\n    if (cslug && !((match['Linkedin Url'] || '').toString().trim())) fill.push('Linkedin Url');\n    if ((cb.Ville || '') && !((match['Headquarters Location'] || '').toString().trim())) fill.push('Headquarters Location');\n    out.push({ json: { decision: 'MATCH', cible: name, company_existante: match['Company Name'], matche_par: by, champs_a_remplir: fill.join(', ') || '(deja complet)' } });\n  } else {\n    out.push({ json: { decision: 'NOUVEAU', cible: name, company_existante: '', matche_par: '', champs_a_remplir: 'creation: Company Name + SIREN + Linkedin + Ville' } });\n  }\n}\nconst nMatch = out.filter(o => o.json.decision === 'MATCH').length;\nconst nNew = out.length - nMatch;\nout.unshift({ json: { decision: '=== RESUME ===', cible: out.length + ' clients qualifies', company_existante: nMatch + ' MATCH / ' + nNew + ' NOUVEAU', matche_par: '', champs_a_remplir: 'AUCUNE ECRITURE - dry-run' } });\nreturn out;"
+      },
+      "id": "dr-code-001",
+      "name": "Dry-run rapprochement",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Déclencheur manuel": { "main": [[{ "node": "Airtable : Comptes Cibles", "type": "main", "index": 0 }]] },
+    "Airtable : Comptes Cibles": { "main": [[{ "node": "Airtable : Companies", "type": "main", "index": 0 }]] },
+    "Airtable : Companies": { "main": [[{ "node": "Dry-run rapprochement", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveManualExecutions": true, "saveDataSuccessExecution": "all", "saveDataErrorExecution": "all" }
+}

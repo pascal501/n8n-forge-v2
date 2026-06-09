@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Paramètres — LinkedIn Profiler</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      background: #f9fafb;
+      color: #111;
+      padding: 32px;
+      max-width: 560px;
+    }
+    h1 { font-size: 20px; margin-bottom: 6px; color: #0a66c2; }
+    p.subtitle { color: #666; font-size: 13px; margin-bottom: 28px; }
+
+    .field { margin-bottom: 18px; }
+    label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 13px; }
+    label span { font-weight: 400; color: #888; font-size: 12px; margin-left: 6px; }
+    input[type="text"], input[type="password"], input[type="number"] {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: monospace;
+      background: white;
+    }
+    input:focus { outline: none; border-color: #0a66c2; box-shadow: 0 0 0 2px #0a66c220; }
+
+    .help {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+    .help a { color: #0a66c2; text-decoration: none; }
+
+    .actions { margin-top: 28px; display: flex; gap: 10px; align-items: center; }
+    button {
+      padding: 10px 22px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #btn-save { background: #0a66c2; color: white; }
+    #btn-save:hover { background: #0959b3; }
+
+    #status {
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    #status.success { background: #dcfce7; color: #15803d; display: inline-block; }
+    #status.error { background: #fee2e2; color: #b91c1c; display: inline-block; }
+
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+
+    .section-header {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 6px 12px;
+      border-radius: 4px;
+      color: #fff;
+      margin-bottom: 16px;
+    }
+    .sh-lcm     { background: #0a66c2; }
+    .sh-clients { background: #16a766; }
+    .sh-shared  { color: #888; background: none; padding-left: 0; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  </style>
+</head>
+<body>
+  <h1>LinkedIn Profiler → Airtable</h1>
+  <p class="subtitle">Configurez vos deux bases Airtable, vos clés API et le mode batch.</p>
+
+  <!-- ─── AUTHENTIFICATION ───────────────────────────────── -->
+  <div class="section-header sh-shared">Authentification</div>
+
+  <div class="field">
+    <label>Token personnel Airtable <span>requis</span></label>
+    <input type="password" id="airtableToken" placeholder="patXXXXXXXXXXXXXX.XXXXXXXXXX" autocomplete="off" />
+    <p class="help">
+      Créez votre token sur
+      <a href="https://airtable.com/create/tokens" target="_blank">airtable.com/create/tokens</a>
+      avec les scopes <strong>data.records:write</strong> et <strong>schema.bases:read</strong>.
+      Ce token doit avoir accès aux deux bases.
+    </p>
+  </div>
+
+  <!-- ─── BASE LINKEDIN CONTACT MANAGEMENT ───────────────── -->
+  <hr />
+  <div class="section-header sh-lcm">🔗 Base : LinkedIn Contact Management</div>
+
+  <div class="field">
+    <label>Base ID <span>requis</span></label>
+    <input type="text" id="lcm_baseId" placeholder="appXXXXXXXXXXXXXX" />
+    <p class="help">Visible dans l'URL : airtable.com/<strong>appXXX</strong>/…</p>
+  </div>
+
+  <div class="field">
+    <label>Table Contacts <span>Contacts LinkedIn</span></label>
+    <input type="text" id="lcm_contactsTableId" placeholder="tblXXXXXXXXXXXXXX" />
+  </div>
+
+  <div class="field">
+    <label>Table Entreprises <span>Comptes Cibles</span></label>
+    <input type="text" id="lcm_companiesTableId" placeholder="tblXXXXXXXXXXXXXX" />
+  </div>
+
+  <div class="field">
+    <label>Table Offres emploi <span>Offres emploi</span></label>
+    <input type="text" id="lcm_jobsTableId" placeholder="tblXXXXXXXXXXXXXX" />
+    <p class="help">Utilisée pour la capture de posts LinkedIn (feature Feed).</p>
+  </div>
+
+  <!-- ─── BASE CLIENTS ───────────────────────────────────── -->
+  <hr />
+  <div class="section-header sh-clients">👥 Base : CLIENTS</div>
+
+  <div class="field">
+    <label>Base ID <span>requis</span></label>
+    <input type="text" id="clients_baseId" placeholder="appXXXXXXXXXXXXXX" />
+  </div>
+
+  <div class="field">
+    <label>Table Contacts <span>Contacts / CONTACTS</span></label>
+    <input type="text" id="clients_contactsTableId" placeholder="tblXXXXXXXXXXXXXX" />
+  </div>
+
+  <div class="field">
+    <label>Table Entreprises <span>Companies</span></label>
+    <input type="text" id="clients_companiesTableId" placeholder="tblXXXXXXXXXXXXXX" />
+  </div>
+
+  <!-- ─── INTELLIGENCE ARTIFICIELLE ──────────────────────── -->
+  <hr />
+  <div class="section-header sh-shared">Intelligence Artificielle</div>
+
+  <div class="row">
+    <div class="field">
+      <label>Clé API Gemini <span>primaire</span></label>
+      <input type="password" id="geminiKey" placeholder="AIzaSy..." autocomplete="off" />
+      <p class="help">
+        Gemini 2.5 Flash (gratuit).
+        <a href="https://aistudio.google.com/apikey" target="_blank">Créer une clé</a>
+      </p>
+    </div>
+    <div class="field">
+      <label>Clé API OpenRouter <span>fallback</span></label>
+      <input type="password" id="openrouterKey" placeholder="sk-or-v1-..." autocomplete="off" />
+      <p class="help">
+        DeepSeek v4 Flash.
+        <a href="https://openrouter.ai/keys" target="_blank">Créer une clé</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- ─── BATCH ──────────────────────────────────────────── -->
+  <hr />
+  <div class="section-header sh-shared">Robot d'enrichissement (mode batch)</div>
+
+  <div class="row">
+    <div class="field">
+      <label>Délai entre profils <span>secondes</span></label>
+      <input type="number" id="batchDelay" placeholder="45" min="10" max="600" value="45" />
+      <p class="help">Pause entre deux profils. Recommandé : <strong>45s</strong> (min 10s).</p>
+    </div>
+    <div class="field">
+      <label>Max profils par session <span>1 à 300</span></label>
+      <input type="number" id="batchMax" placeholder="50" min="1" max="300" value="50" />
+      <p class="help">Sécurité LinkedIn. Premier test : <strong>5</strong>.</p>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="btn-save">Enregistrer</button>
+    <span id="status"></span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

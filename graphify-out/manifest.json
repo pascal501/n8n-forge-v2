@@ -1,0 +1,212 @@
+{
+  "/home/paco/projets/n8n-forge-v2/.claude/settings.local.json": {
+    "mtime": 1780503211.3089006,
+    "ast_hash": "4532aff6d881002af27a3e2b16caf436",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/.vscode/extensions.json": {
+    "mtime": 1776796957.1109242,
+    "ast_hash": "d8f539278cf157f05ea0fbbc9774b552",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/client/src/App.jsx": {
+    "mtime": 1777117232.1860883,
+    "ast_hash": "e708a4f56ce2cf71ec806939ac29b9dd",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/client/src/main.jsx": {
+    "mtime": 1776249870.0,
+    "ast_hash": "d8e3c70d110c20b971bcfbe5ed77b2ab",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/client/vite.config.js": {
+    "mtime": 1776959895.4132469,
+    "ast_hash": "fabdb21ec566d4bad990810fadb38703",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/data/sessions/session-mobnwrdd49a.json": {
+    "mtime": 1776959673.742422,
+    "ast_hash": "19b80196f955a6d6a4b0d87956ed06b6",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/data/sessions/session-mobp9yrws5q.json": {
+    "mtime": 1776961969.4834058,
+    "ast_hash": "b4be41e43230c14f3bee0b270da8d08a",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/data/sessions/session-mobq9uwshpl.json": {
+    "mtime": 1776963644.0876944,
+    "ast_hash": "2beefb6cd35fbfa3f2cd1242e5648ae4",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/data/sessions/session-mobqdh0xzoh.json": {
+    "mtime": 1776963812.7180173,
+    "ast_hash": "501f75e8679371c17aa43ed4a51ca23b",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/data/sessions/session-mockcutj2ul.json": {
+    "mtime": 1777014172.4210677,
+    "ast_hash": "6fd1a59be402a6fee6bdcd863fbb456c",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/data/sessions/session-moe7f8dk5e5.json": {
+    "mtime": 1777113380.6422102,
+    "ast_hash": "fd288ec852339cb6bf9236eeea13bbd4",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/data/sessions/session-moe7hno0hzc.json": {
+    "mtime": 1777113502.9947257,
+    "ast_hash": "96cd9bbdc0d11c533b3b56c8d880db8e",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/data/sessions/session-moe824w7imj.json": {
+    "mtime": 1777114462.0835745,
+    "ast_hash": "3cd8cb51b9ca95d0ffbef88c63a88373",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/_n8n_backup/email.json": {
+    "mtime": 1780505300.7026854,
+    "ast_hash": "95541af78f42cbce7740704aeb6f2c68",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/_n8n_backup/localisation.json": {
+    "mtime": 1780505300.9088624,
+    "ast_hash": "3e7a82547c53c2f56c2ed6ad9db2bc00",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/background.js": {
+    "mtime": 1780504209.2929,
+    "ast_hash": "a8b982577fad09f39de9c23a7bd70550",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/content.js": {
+    "mtime": 1780503168.396901,
+    "ast_hash": "4e8deb52d979f64e1c3e92dd14866805",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/generate-icons.js": {
+    "mtime": 1780064928.0749943,
+    "ast_hash": "5ee57cc67f2ad91d6bdb5ffdbf1c8635",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/manifest.json": {
+    "mtime": 1780078086.771633,
+    "ast_hash": "ee007b982478bd884ee6fbd135ba5fda",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/options.js": {
+    "mtime": 1780408958.6884391,
+    "ast_hash": "0cc87cfad9fe7d4a238c392589f1d5b9",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/pdf-generator.js": {
+    "mtime": 1780067379.45576,
+    "ast_hash": "650fab4952e373d0483c0d35c0a0b7cd",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/popup.js": {
+    "mtime": 1780504453.2449007,
+    "ast_hash": "c751b7edc2cbcb827506771b7686292d",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/install.sh": {
+    "mtime": 1776250052.0,
+    "ast_hash": "85f1d83763b8778b0f76eaf5c7677a6b",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/package.json": {
+    "mtime": 1777113447.1852818,
+    "ast_hash": "7919ae5fd59a205e7131a1b56ec3ff04",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/server/index.js": {
+    "mtime": 1777014243.090998,
+    "ast_hash": "03699e3deba091ad16c3253296cb6606",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/server/services/gemini.js": {
+    "mtime": 1776931993.8080018,
+    "ast_hash": "745fb302cda3f37c749b653a19211804",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/server/services/mcp.js": {
+    "mtime": 1776789815.1982584,
+    "ast_hash": "65afb4cd4fc7489a33d6be3966335744",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/server/services/sessions.js": {
+    "mtime": 1776249790.0,
+    "ast_hash": "c65443389f790176bd65d97ab7587039",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/.continue/rules.md": {
+    "mtime": 1777115381.057652,
+    "ast_hash": "95da6f7fd35f87c4901a1cbdad05dec1",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/CLAUDE.md": {
+    "mtime": 1776958669.8275974,
+    "ast_hash": "cf253cd2eb05c006003719b194a91d62",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/client/CLAUDE.md": {
+    "mtime": 1776930055.439052,
+    "ast_hash": "0e3506b155098f42b06fb17e9b001761",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/client/index.html": {
+    "mtime": 1776249858.0,
+    "ast_hash": "cc46f1203ae0d6ac54722c3492bbb4fb",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/docker-compose.dev.yml": {
+    "mtime": 1777113684.993039,
+    "ast_hash": "3c65e34f824a19af743cc0af4aef8878",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/docker-compose.yml": {
+    "mtime": 1776928370.7761135,
+    "ast_hash": "139dd1341bad49df149c1d38add8f1d7",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/README.md": {
+    "mtime": 1780076969.4276178,
+    "ast_hash": "83e326c64ac9c63404204a719d75425b",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/options.html": {
+    "mtime": 1780408925.360438,
+    "ast_hash": "9a67d5255669b18810a2c87217c1f702",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/popup.html": {
+    "mtime": 1780504422.240902,
+    "ast_hash": "388f8fdfc5c09aaa5befef528c81149b",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/server/CLAUDE.md": {
+    "mtime": 1776930314.6504908,
+    "ast_hash": "fc7808505f688e79bafb7b91e506f34f",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/icons/icon128.png": {
+    "mtime": 1780065051.934084,
+    "ast_hash": "92b2ff32768dc8e54c5f67d335cac750",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/icons/icon16.png": {
+    "mtime": 1780065051.9018734,
+    "ast_hash": "2a1ab8b566a53b82351151d7567181ac",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/icons/icon48.png": {
+    "mtime": 1780065051.9018734,
+    "ast_hash": "2308030cedc4f554076c5a98181fc3df",
+    "semantic_hash": ""
+  },
+  "/home/paco/projets/n8n-forge-v2/extensions/linkedin-airtable/_n8n_backup/fix_email.js": {
+    "mtime": 1780506091.153289,
+    "ast_hash": "4428e05fc99a02cf61d2080ab5f79d69",
+    "semantic_hash": ""
+  }
+}

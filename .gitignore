@@ -1,0 +1,9 @@
+# Sauvegardes des workflows n8n — contiennent des clés API en clair (Apollo, etc.)
+_n8n_backup/
+
+# Clé API n8n (au cas où elle serait déposée dans le repo)
+.n8n_api_key
+*.n8n_api_key
+
+# Handoff files — contiennent des secrets en clair (tokens, clés API)
+extensions/_handoff/

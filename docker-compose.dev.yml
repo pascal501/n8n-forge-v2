@@ -1,0 +1,20 @@
+services:
+  n8n-forge-dev:
+    image: node:20-alpine
+    container_name: n8n-forge-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules_dev:/app/node_modules
+      - forge-sessions:/app/data/sessions
+    ports:
+      - "3001:5173"
+    env_file:
+      - .env
+    command: sh -c "npm install --prefer-offline && npm run dev"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  node_modules_dev:
+  forge-sessions:

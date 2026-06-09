@@ -1,0 +1,22 @@
+# Évite les copies imbriquées et artefacts Docker
+n8n-forge-v2/
+node_modules/
+data/
+dist/
+
+# Fichiers sensibles et inutiles au build
+.env
+.env.*
+*.log
+*.md
+
+# Git
+.git/
+.gitignore
+
+# Éditeur
+.vscode/
+*.code-workspace
+
+# Dev only
+docker-compose.dev.yml

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Paramètres — LinkedIn → Airtable</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      background: #f9fafb;
+      color: #111;
+      padding: 32px;
+      max-width: 560px;
+    }
+    h1 { font-size: 20px; margin-bottom: 6px; color: #0a66c2; }
+    p.subtitle { color: #666; font-size: 13px; margin-bottom: 28px; }
+
+    .field { margin-bottom: 18px; }
+    label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 13px; }
+    label span { font-weight: 400; color: #888; font-size: 12px; margin-left: 6px; }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: monospace;
+      background: white;
+    }
+    input:focus { outline: none; border-color: #0a66c2; box-shadow: 0 0 0 2px #0a66c220; }
+
+    .help {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+    .help a { color: #0a66c2; text-decoration: none; }
+
+    .actions { margin-top: 28px; display: flex; gap: 10px; align-items: center; }
+    button {
+      padding: 10px 22px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #btn-save { background: #0a66c2; color: white; }
+    #btn-save:hover { background: #0959b3; }
+
+    #status {
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    #status.success { background: #dcfce7; color: #15803d; display: inline-block; }
+    #status.error { background: #fee2e2; color: #b91c1c; display: inline-block; }
+
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 28px 0; }
+    .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <h1>LinkedIn → Airtable</h1>
+  <p class="subtitle">Configurez vos identifiants Airtable pour enregistrer des contacts LinkedIn.</p>
+
+  <div class="section-title">Authentification Airtable</div>
+
+  <div class="field">
+    <label>Token personnel Airtable <span>requis</span></label>
+    <input type="password" id="airtableToken" placeholder="patXXXXXXXXXXXXXX.XXXXXXXXXX" autocomplete="off" />
+    <p class="help">
+      Créez votre token sur
+      <a href="https://airtable.com/create/tokens" target="_blank">airtable.com/create/tokens</a>
+      avec les scopes <strong>data.records:write</strong> et <strong>schema.bases:read</strong>.
+    </p>
+  </div>
+
+  <hr />
+  <div class="section-title">Base &amp; Table</div>
+
+  <div class="field">
+    <label>Base ID <span>requis</span></label>
+    <input type="text" id="baseId" placeholder="appXXXXXXXXXXXXXX" />
+    <p class="help">Visible dans l'URL de votre base Airtable : airtable.com/<strong>appXXX</strong>/…</p>
+  </div>
+
+  <div class="field">
+    <label>Table ID <span>requis</span></label>
+    <input type="text" id="tableId" placeholder="tblXXXXXXXXXXXXXX" />
+    <p class="help">Dans l'URL : airtable.com/appXXX/<strong>tblXXX</strong>/…</p>
+  </div>
+
+  <hr />
+  <div class="section-title">Résumé IA (optionnel)</div>
+
+  <div class="field">
+    <label>Clé API Gemini <span>optionnel</span></label>
+    <input type="password" id="geminiKey" placeholder="AIzaSy…" autocomplete="off" />
+    <p class="help">
+      Génère un résumé du profil dans « Profile Summary ».
+      Créez une clé gratuite sur
+      <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>.
+      Laissez vide pour désactiver.
+    </p>
+  </div>
+
+  <hr />
+  <div class="section-title">Robot d'enrichissement (mode batch)</div>
+
+  <div class="field">
+    <label>Délai entre chaque profil <span>secondes</span></label>
+    <input type="number" id="batchDelay" placeholder="45" min="10" max="600" value="45" />
+    <p class="help">
+      Temps de pause entre deux profils LinkedIn pour imiter un rythme humain et
+      <strong>éviter le bannissement</strong>. Recommandé : <strong>45s</strong> (minimum 10s).
+    </p>
+  </div>
+
+  <div class="field">
+    <label>Nombre max de profils par session <span>1 à 200</span></label>
+    <input type="number" id="batchMax" placeholder="50" min="1" max="200" value="50" />
+    <p class="help">
+      Le robot traite au maximum <strong>200 profils consécutifs</strong> (sécurité LinkedIn).
+      Pour un premier test, mettez <strong>5</strong>.
+    </p>
+  </div>
+
+  <div class="actions">
+    <button id="btn-save">Enregistrer</button>
+    <span id="status"></span>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

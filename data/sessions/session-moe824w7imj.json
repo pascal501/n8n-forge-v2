@@ -1,0 +1,243 @@
+{
+  "id": "moe824w7imj",
+  "title": "Crée un workflow qui envoie un résumé RSS par email chaque matin",
+  "createdAt": "2026-04-25T10:54:09.223Z",
+  "updatedAt": "2026-04-25T10:54:22.087Z",
+  "history": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Crée un workflow qui envoie un résumé RSS par email chaque matin"
+        }
+      ],
+      "ts": "2026-04-25T10:54:09.245Z"
+    },
+    {
+      "role": "model",
+      "parts": [
+        {
+          "text": "Absolument ! Je peux créer un workflow pour cela.\n\nPour commencer, j'ai besoin de quelques informations :\n\n1.  **Quel est l'URL du flux RSS** que vous souhaitez résumer ?\n2.  **À quelle adresse email** le résumé doit-il être envoyé ?\n3.  **À quelle heure chaque matin** souhaitez-vous que le résumé soit envoyé (par défaut, je mettrai 8h du matin) ?\n\nEn attendant vos précisions, voici une ébauche de workflow avec des placeholders.\n\n```json\n{\n  \"name\": \"Résumé RSS Quotidien par Email\",\n  \"nodes\": [\n    {\n      \"id\": \"e1f2g3h4-i5j6-7890-klmn-op1234567890\",\n      \"parameters\": {\n        \"rule\": {\n          \"interval\": [\n            {\n              \"field\": \"cronExpression\",\n              \"expression\": \"0 8 * * *\"\n            }\n          ]\n        }\n      },\n      \"name\": \"Chaque Matin (8h)\",\n      \"type\": \"n8n-nodes-base.scheduleTrigger\",\n      \"typeVersion\": 1,\n      \"position\": [240, 300]\n    },\n    {\n      \"id\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\",\n      \"parameters\": {\n        \"url\": \"https://www.n8n.io/feed/\"\n      },\n      \"name\": \"Lire Flux RSS\",\n      \"type\": \"n8n-nodes-base.rssFeedRead\",\n      \"typeVersion\": 1,\n      \"position\": [460, 300]\n    },\n    {\n      \"id\": \"f7e8d9c0-b1a2-3456-7890-fedcba987654\",\n      \"parameters\": {\n        \"jsCode\": \"const items = $input.all();\\nlet summary = 'Voici votre résumé RSS du jour :\\\\n\\\\n';\\n\\nif (items.length === 0) {\\n  summary += 'Aucun nouvel article trouvé.';\\n} else {\\n  for (const item of items) {\\n    summary += `Titre: ${item.json.title}\\\\n`;\\n    summary += `Lien: ${item.json.link}\\\\n`;\\n    summary += `Description: ${item.json.description ? item.json.description.substring(0, 200) + '...' : 'Pas de description'}\\\\n\\\\n`;\\n  }\\n}\\n\\nreturn [{ json: { summary: summary } }];\"\n      },\n      \"name\": \"Préparer Résumé\",\n      \"type\": \"n8n-nodes-base.code\",\n      \"typeVersion\": 2,\n      \"position\": [680, 300]\n    },\n    {\n      \"id\": \"cba98765-4321-0fed-cba9-876543210fed\",\n      \"parameters\": {\n        \"fromEmail\": \"votre_email_expediteur@exemple.com\",\n        \"toEmail\": \"votre_email_destinataire@exemple.com\",\n        \"subject\": \"Votre Résumé RSS Quotidien\",\n        \"text\": \"={{ $json.summary }}\"\n      },\n      \"name\": \"Envoyer Résumé par Email\",\n      \"type\": \"n8n-nodes-base.emailSend\",\n      \"typeVersion\": 2,\n      \"position\": [900, 300]\n    }\n  ],\n  \"connections\": {\n    \"Chaque Matin (8h)\": {\n      \"main\": [[{ \"node\": \"Lire Flux RSS\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Lire Flux RSS\": {\n      \"main\": [[{ \"node\": \"Préparer Résumé\", \"type\": \"main\", \"index\": 0 }]]\n    },\n    \"Préparer Résumé\": {\n      \"main\": [[{ \"node\": \"Envoyer Résumé par Email\", \"type\": \"main\", \"index\": 0 }]]\n    }\n  },\n  \"active\": false,\n  \"settings\": {}\n}\n```\n\nUne fois que vous m'aurez fourni les informations demandées, je pourrai ajuster le workflow et vous indiquer comment le déployer."
+        }
+      ],
+      "ts": "2026-04-25T10:54:22.087Z",
+      "workflow": {
+        "name": "Résumé RSS Quotidien par Email",
+        "nodes": [
+          {
+            "id": "e1f2g3h4-i5j6-7890-klmn-op1234567890",
+            "parameters": {
+              "rule": {
+                "interval": [
+                  {
+                    "field": "cronExpression",
+                    "expression": "0 8 * * *"
+                  }
+                ]
+              }
+            },
+            "name": "Chaque Matin (8h)",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1,
+            "position": [
+              240,
+              300
+            ]
+          },
+          {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "parameters": {
+              "url": "https://www.n8n.io/feed/"
+            },
+            "name": "Lire Flux RSS",
+            "type": "n8n-nodes-base.rssFeedRead",
+            "typeVersion": 1,
+            "position": [
+              460,
+              300
+            ]
+          },
+          {
+            "id": "f7e8d9c0-b1a2-3456-7890-fedcba987654",
+            "parameters": {
+              "jsCode": "const items = $input.all();\nlet summary = 'Voici votre résumé RSS du jour :\\n\\n';\n\nif (items.length === 0) {\n  summary += 'Aucun nouvel article trouvé.';\n} else {\n  for (const item of items) {\n    summary += `Titre: ${item.json.title}\\n`;\n    summary += `Lien: ${item.json.link}\\n`;\n    summary += `Description: ${item.json.description ? item.json.description.substring(0, 200) + '...' : 'Pas de description'}\\n\\n`;\n  }\n}\n\nreturn [{ json: { summary: summary } }];"
+            },
+            "name": "Préparer Résumé",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+              680,
+              300
+            ]
+          },
+          {
+            "id": "cba98765-4321-0fed-cba9-876543210fed",
+            "parameters": {
+              "fromEmail": "votre_email_expediteur@exemple.com",
+              "toEmail": "votre_email_destinataire@exemple.com",
+              "subject": "Votre Résumé RSS Quotidien",
+              "text": "={{ $json.summary }}"
+            },
+            "name": "Envoyer Résumé par Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 2,
+            "position": [
+              900,
+              300
+            ]
+          }
+        ],
+        "connections": {
+          "Chaque Matin (8h)": {
+            "main": [
+              [
+                {
+                  "node": "Lire Flux RSS",
+                  "type": "main",
+                  "index": 0
+                }
+              ]
+            ]
+          },
+          "Lire Flux RSS": {
+            "main": [
+              [
+                {
+                  "node": "Préparer Résumé",
+                  "type": "main",
+                  "index": 0
+                }
+              ]
+            ]
+          },
+          "Préparer Résumé": {
+            "main": [
+              [
+                {
+                  "node": "Envoyer Résumé par Email",
+                  "type": "main",
+                  "index": 0
+                }
+              ]
+            ]
+          }
+        },
+        "active": false,
+        "settings": {}
+      },
+      "actions": {
+        "deploy": false,
+        "validate": false,
+        "test": false,
+        "showWf": false
+      },
+      "deployedId": null,
+      "deployedName": null
+    }
+  ],
+  "workflow": {
+    "name": "Résumé RSS Quotidien par Email",
+    "nodes": [
+      {
+        "id": "e1f2g3h4-i5j6-7890-klmn-op1234567890",
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 8 * * *"
+              }
+            ]
+          }
+        },
+        "name": "Chaque Matin (8h)",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1,
+        "position": [
+          240,
+          300
+        ]
+      },
+      {
+        "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "parameters": {
+          "url": "https://www.n8n.io/feed/"
+        },
+        "name": "Lire Flux RSS",
+        "type": "n8n-nodes-base.rssFeedRead",
+        "typeVersion": 1,
+        "position": [
+          460,
+          300
+        ]
+      },
+      {
+        "id": "f7e8d9c0-b1a2-3456-7890-fedcba987654",
+        "parameters": {
+          "jsCode": "const items = $input.all();\nlet summary = 'Voici votre résumé RSS du jour :\\n\\n';\n\nif (items.length === 0) {\n  summary += 'Aucun nouvel article trouvé.';\n} else {\n  for (const item of items) {\n    summary += `Titre: ${item.json.title}\\n`;\n    summary += `Lien: ${item.json.link}\\n`;\n    summary += `Description: ${item.json.description ? item.json.description.substring(0, 200) + '...' : 'Pas de description'}\\n\\n`;\n  }\n}\n\nreturn [{ json: { summary: summary } }];"
+        },
+        "name": "Préparer Résumé",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          680,
+          300
+        ]
+      },
+      {
+        "id": "cba98765-4321-0fed-cba9-876543210fed",
+        "parameters": {
+          "fromEmail": "votre_email_expediteur@exemple.com",
+          "toEmail": "votre_email_destinataire@exemple.com",
+          "subject": "Votre Résumé RSS Quotidien",
+          "text": "={{ $json.summary }}"
+        },
+        "name": "Envoyer Résumé par Email",
+        "type": "n8n-nodes-base.emailSend",
+        "typeVersion": 2,
+        "position": [
+          900,
+          300
+        ]
+      }
+    ],
+    "connections": {
+      "Chaque Matin (8h)": {
+        "main": [
+          [
+            {
+              "node": "Lire Flux RSS",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Lire Flux RSS": {
+        "main": [
+          [
+            {
+              "node": "Préparer Résumé",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Préparer Résumé": {
+        "main": [
+          [
+            {
+              "node": "Envoyer Résumé par Email",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "active": false,
+    "settings": {}
+  },
+  "deployed": []
+}
